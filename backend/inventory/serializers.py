@@ -7,7 +7,7 @@ class IngredientSerializer(serializers.ModelSerializer):
         model = Ingredient
         fields = ["id", "name", "unit", "current_stock", "cost_per_unit",
                   "low_stock_threshold", "created_at"]
-        read_only_fields = ["current_stock", "created_at"]
+        read_only_fields = ["created_at"]
  
  
 class StockMovementSerializer(serializers.ModelSerializer):

@@ -34,7 +34,7 @@ class StockMovement(models.Model):
     related_sale = models.ForeignKey(
         "sales.Sale", on_delete=models.SET_NULL, null=True, blank=True, related_name="stock_movements"
     )
-    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, db_column="created_by")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

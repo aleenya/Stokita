@@ -9,7 +9,7 @@ class Business(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = "business"
+        db_table = "businesses"
 
     def __str__(self):
         return self.name

@@ -34,4 +34,5 @@ class MenuRecipe(models.Model):
     qty_per_serving = models.DecimalField(max_digits=12, decimal_places=3)
 
     class Meta:
+        db_table = "menu_recipes"
         unique_together = ("menu", "ingredient")
