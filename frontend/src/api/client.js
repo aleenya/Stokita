@@ -9,4 +9,15 @@ if (savedToken) {
   api.defaults.headers.common['Authorization'] = `Token ${savedToken}`
 }
 
+api.interceptors.response.use(
+  (res) => res,
+  (err) => {
+    if (err.response?.status === 401) {
+      localStorage.removeItem('stokita_token')
+      window.location.reload()
+    }
+    return Promise.reject(err)
+  }
+)
+
 export default api
