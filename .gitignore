@@ -1,2 +1,16 @@
+# env
+.env
+*/.env
+
+# python
+**/__pycache__/
+*.pyc
 venv/
 env/
+
+# django
+*.sqlite3
+staticfiles/
+
+# os
+.DS_Store
