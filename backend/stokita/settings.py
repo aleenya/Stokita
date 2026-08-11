@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     "menus",
     "sales",
     "briefs",
+    "rest_framework.authtoken",
 ]
 
 MIDDLEWARE = [
