@@ -2,6 +2,7 @@ import { useState } from 'react'
 import LoginPage from './pages/LoginPage'
 import api from './api/client'
 import IngredientsPage from './pages/IngredientsPage'
+import MenusPage from './pages/MenusPage'
 
 const PAGES = ['ingredients', 'menus', 'sales', 'profit', 'brief']
 
@@ -49,7 +50,7 @@ function App() {
 
       <main className="p-6">
         {page === 'ingredients' && <IngredientsPage />}
-        {page === 'menus' && <p>TODO: Menus page (Step 3)</p>}
+        {page === 'menus' && <MenusPage onLogout={handleLogout} />}
         {page === 'sales' && <p>TODO: Sales page (Step 4)</p>}
         {page === 'profit' && <p>TODO: Profit page (Step 5)</p>}
         {page === 'brief' && <p>TODO: Brief page (Step 6)</p>}
