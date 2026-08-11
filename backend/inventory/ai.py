@@ -49,3 +49,44 @@ def estimate_shelf_life(ingredient_name: str, notes: str = ""):
     except Exception:
         logger.exception("Gemini expiry estimation failed")
         return None
+
+def parse_receipt(image_bytes: bytes, mime_type: str):
+    """
+    OCR struk belanja. Vision di sini cuma buat BACA TEKS (nama & qty item),
+    bukan buat nebak kesegaran — jadi tetep akurat. Return list of dict
+    [{"name": str, "quantity": float, "unit": str}, ...] atau [] kalau gagal.
+    """
+    from google import genai
+    from google.genai import types
+
+    if not settings.GEMINI_API_KEY:
+        return []
+
+    prompt = """
+            Baca struk belanja pada foto ini. Ekstrak setiap item bahan makanan/minuman
+            yang dibeli (abaikan item non-bahan makanan seperti kantong plastik, biaya
+            layanan, pajak, dsb).
+
+            Jawab HANYA dalam format JSON array, tanpa markdown:
+            [
+            {"name": "nama bahan (singkat & umum)", "quantity": number, "unit": "kg|g|pcs|liter|ml"}
+            ]
+
+            Kalau quantity tidak jelas dari struk, gunakan 1 sebagai default.
+            Kalau tidak ada item yang bisa dikenali, jawab array kosong [].
+        """
+    try:
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        response = client.models.generate_content(
+            model="gemini-3.6-flash",
+            contents=[
+                types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
+                prompt,
+            ],
+            config={"response_mime_type": "application/json"},
+        )
+        items = json.loads(response.text)
+        return items if isinstance(items, list) else []
+    except Exception:
+        logger.exception("Gemini receipt parsing failed")
+        return []
