@@ -1,0 +1,157 @@
+"""
+AI integration stub for Stokita (F5 Purchase Recommendation).
+ 
+Right now this uses simple RULE-BASED logic so the whole system works
+end-to-end without any AI. Later, you can replace the body of
+`generate_recommendations` with a Gemini call that takes the same
+`context` dict and returns the same list shape.
+ 
+That way nothing else in the codebase has to change when you add AI.
+"""
+from decimal import Decimal
+from datetime import date, timedelta
+import logging
+import json
+from django.conf import settings
+logger = logging.getLogger(__name__)
+ 
+ 
+def _rule_based_recommendations(context):
+    """Baseline logic: works today, no AI needed."""
+    actions = []
+ 
+    # 1. low-stock -> restock
+    for ing in context["ingredients"]:
+        if ing["low_stock_threshold"] is not None and \
+           ing["current_stock"] <= ing["low_stock_threshold"]:
+            actions.append({
+                "action_type": "restock",
+                "message": f"{ing['name']} is low ({ing['current_stock']} {ing['unit']} left). Consider restocking.",
+                "related_ingredient_id": ing["id"],
+                "rupiah_impact": 0,
+            })
+ 
+    # 2. worrying-margin menus -> review
+    for menu in context["profit"]:
+        if menu["state"] == "worrying":
+            actions.append({
+                "action_type": "review_menu",
+                "message": f"{menu['name']} margin is worrying ({menu['margin_pct']}%). Review pricing or recipe.",
+                "related_menu_id": menu["menu_id"],
+                "rupiah_impact": 0,
+            })
+ 
+    # 3. expiring stock -> discount
+    for ing in context["expiring_soon"]:
+        actions.append({
+            "action_type": "discount",
+            "message": f"{ing['name']} expires soon. Consider a discount to clear it before waste.",
+            "related_ingredient_id": ing["id"],
+            "rupiah_impact": 0,
+        })
+ 
+    return actions
+ 
+_VALID_ACTION_TYPES = {"restock", "discount", "review_menu", "expiry_alert"}
+
+
+def _build_prompt(context):
+    """Turn the context dict into a plain-language + JSON prompt for Gemini."""
+    return f"""
+You are a decision-support assistant for a small F&B business owner.
+Based on the business data below, recommend concrete actions the owner
+should take today. Ground every recommendation in the actual numbers
+given — do not invent ingredients, menus, or figures that aren't in the data.
+
+Business data:
+{json.dumps(context, indent=2, default=str)}
+
+Respond with ONLY a JSON array (no markdown, no extra text), where each
+item has this exact shape:
+[
+  {{
+    "action_type": "restock" | "discount" | "review_menu" | "expiry_alert",
+    "message": "short, clear recommendation in plain language",
+    "related_ingredient_id": "uuid string or null",
+    "related_menu_id": "uuid string or null",
+    "rupiah_impact": integer estimate of the rupiah impact, 0 if unknown
+  }}
+]
+
+Rules:
+- related_ingredient_id must be one of the ingredient "id" values in the data, or null.
+- related_menu_id must be one of the menu "menu_id" values in the data, or null.
+- Only recommend restocking ingredients that appear in the low-stock data.
+- Only recommend reviewing menus that appear in the profit data with a
+  "worrying" or low state.
+- Keep the array to at most 8 actions, prioritizing the highest-impact ones.
+"""
+
+
+def _parse_gemini_response(text, context):
+    """Parse and validate Gemini's JSON output against the context we sent."""
+    cleaned = text.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+    actions = json.loads(cleaned)
+
+    valid_ingredient_ids = {i["id"] for i in context["ingredients"]}
+    valid_menu_ids = {m["menu_id"] for m in context["profit"]}
+
+    validated = []
+    for a in actions:
+        if a.get("action_type") not in _VALID_ACTION_TYPES:
+            continue
+        if not a.get("message"):
+            continue
+
+        ingredient_id = a.get("related_ingredient_id")
+        if ingredient_id not in valid_ingredient_ids:
+            ingredient_id = None
+
+        menu_id = a.get("related_menu_id")
+        if menu_id not in valid_menu_ids:
+            menu_id = None
+
+        validated.append({
+            "action_type": a["action_type"],
+            "message": a["message"],
+            "related_ingredient_id": ingredient_id,
+            "related_menu_id": menu_id,
+            "rupiah_impact": a.get("rupiah_impact") or 0,
+        })
+
+    return validated
+
+
+def _gemini_recommendations(context):
+    from google import genai
+
+    client = genai.Client(api_key=settings.GEMINI_API_KEY)
+    prompt = _build_prompt(context)
+
+    response = client.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=prompt,
+        config={"response_mime_type": "application/json"},
+    )
+    return _parse_gemini_response(response.text, context)
+
+
+def generate_recommendations(context):
+    """
+    Public entry point. Returns a list of action dicts.
+
+    Tries Gemini first (if GEMINI_API_KEY is set). Falls back to
+    rule-based logic if the key is missing, the API call fails, or
+    the response can't be parsed/validated — so the brief always
+    generates something, even if Gemini is down.
+    """
+    if settings.GEMINI_API_KEY:
+        try:
+            actions = _gemini_recommendations(context)
+            if actions:
+                return actions
+            logger.warning("Gemini returned no valid actions, falling back to rules.")
+        except Exception:
+            logger.exception("Gemini call failed, falling back to rule-based recommendations.")
+
+    return _rule_based_recommendations(context)
