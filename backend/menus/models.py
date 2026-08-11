@@ -13,6 +13,9 @@ class Menu(models.Model):
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        db_table = "menus"
+
     def unit_cost(self):
         """Sum of (ingredient cost x qty per serving) across the recipe."""
         total = 0
