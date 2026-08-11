@@ -52,11 +52,11 @@ function App() {
       </nav>
 
       <main className="p-6">
-        {page === 'ingredients' && <IngredientsPage />}
-        {page === 'menus' && <MenusPage />}
-        {page === 'sales' && <SalesPage />}
-        {page === 'profit' && <ProfitPage />}
-        {page === 'brief' && <BriefPage />}
+        {page === 'ingredients' && <IngredientsPage onLogout={handleLogout} />}
+        {page === 'menus' && <MenusPage onLogout={handleLogout} />}
+        {page === 'sales' && <SalesPage onLogout={handleLogout} />}
+        {page === 'profit' && <ProfitPage onLogout={handleLogout} />}
+        {page === 'brief' && <BriefPage onLogout={handleLogout} />}
       </main>
     </div>
   )
