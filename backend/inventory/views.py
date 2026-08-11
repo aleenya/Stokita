@@ -4,6 +4,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import Ingredient, StockMovement
 from .serializers import IngredientSerializer
+from datetime import date, timedelta
+from .ai import estimate_shelf_life
  
  
 class IngredientViewSet(viewsets.ModelViewSet):
@@ -31,3 +33,34 @@ class IngredientViewSet(viewsets.ModelViewSet):
         ingredient.current_stock += qty
         ingredient.save(update_fields=["current_stock"])
         return Response({"current_stock": ingredient.current_stock})
+
+    @action(detail=False, methods=["post"])
+    def estimate_expiry(self, request):
+        """
+        Dipanggil dari tombol 'Generate expiry' di form restock —
+        baik mode add ingredient baru (nama diketik) maupun mode edit
+        (nama dari dropdown ingredient existing). Cuma butuh nama,
+        gak butuh ingredient sudah ada di DB atau belum.
+        Form belum di-submit di titik ini.
+        """
+        name = request.data.get("name", "").strip()
+        if not name:
+            return Response({"error": "nama wajib diisi"}, status=status.HTTP_400_BAD_REQUEST)
+
+        notes = request.data.get("notes", "")
+        result = estimate_shelf_life(ingredient_name=name, notes=notes)
+        if result is None:
+            return Response(
+                {"error": "Gagal estimasi. Isi expiry date manual."},
+                status=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            )
+
+        estimated_days = result["estimated_days"]
+        suggested_expiry = date.today() + timedelta(days=estimated_days)
+
+        return Response({
+            "estimated_days": estimated_days,
+            "confidence": result.get("confidence"),
+            "note": result.get("note"),
+            "suggested_expiry_date": suggested_expiry.isoformat(),
+        })
