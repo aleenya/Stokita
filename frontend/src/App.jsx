@@ -3,6 +3,9 @@ import LoginPage from './pages/LoginPage'
 import api from './api/client'
 import IngredientsPage from './pages/IngredientsPage'
 import MenusPage from './pages/MenusPage'
+import SalesPage from './pages/SalesPage'
+import ProfitPage from './pages/ProfitPage'
+import BriefPage from './pages/BriefPage'
 
 const PAGES = ['ingredients', 'menus', 'sales', 'profit', 'brief']
 
@@ -49,11 +52,11 @@ function App() {
       </nav>
 
       <main className="p-6">
-        {page === 'ingredients' && <IngredientsPage />}
+        {page === 'ingredients' && <IngredientsPage onLogout={handleLogout} />}
         {page === 'menus' && <MenusPage onLogout={handleLogout} />}
-        {page === 'sales' && <p>TODO: Sales page (Step 4)</p>}
-        {page === 'profit' && <p>TODO: Profit page (Step 5)</p>}
-        {page === 'brief' && <p>TODO: Brief page (Step 6)</p>}
+        {page === 'sales' && <SalesPage onLogout={handleLogout} />}
+        {page === 'profit' && <ProfitPage onLogout={handleLogout} />}
+        {page === 'brief' && <BriefPage onLogout={handleLogout} />}
       </main>
     </div>
   )
