@@ -6,7 +6,7 @@ export default function IngredientsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const [form, setForm] = useState({ name: '', unit: 'kg', cost_per_unit: '', low_stock_threshold: '' })
+  const [form, setForm] = useState({ name: '', unit: 'kg', current_stock: '', cost_per_unit: '', low_stock_threshold: '' })
   const [restockQty, setRestockQty] = useState({}) // { [ingredientId]: value }
 
   async function fetchIngredients() {
@@ -32,10 +32,11 @@ export default function IngredientsPage() {
       await api.post('/ingredients/', {
         name: form.name,
         unit: form.unit,
+        current_stock: form.current_stock || 0,
         cost_per_unit: form.cost_per_unit,
         low_stock_threshold: form.low_stock_threshold || null,
       })
-      setForm({ name: '', unit: 'kg', cost_per_unit: '', low_stock_threshold: '' })
+      setForm({ name: '', unit: 'kg', current_stock: '', cost_per_unit: '', low_stock_threshold: '' })
       fetchIngredients()
     } catch (err) {
       setError('Gagal bikin ingredient. Cek isian form.')
@@ -76,6 +77,16 @@ export default function IngredientsPage() {
             value={form.unit}
             onChange={(e) => setForm({ ...form, unit: e.target.value })}
             className="border border-[#D8D0BF] rounded-md px-3 py-2 text-sm w-20"
+          />
+        </div>
+        <div>
+          <label className="block text-xs uppercase text-[#5C6B62] mb-1">Initial stock</label>
+          <input
+            type="number" step="0.001"
+            value={form.current_stock}
+            onChange={(e) => setForm({ ...form, current_stock: e.target.value })}
+            className="border border-[#D8D0BF] rounded-md px-3 py-2 text-sm w-24"
+            placeholder="0"
           />
         </div>
         <div>
