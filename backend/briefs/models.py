@@ -13,6 +13,7 @@ class DailyBrief(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        db_table = "daily_briefs"
         unique_together = ("business", "brief_date")
 
 
@@ -37,3 +38,6 @@ class BriefAction(models.Model):
     related_ingredient = models.ForeignKey(Ingredient, on_delete=models.SET_NULL, null=True, blank=True)
     rupiah_impact = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=PENDING)
+
+    class Meta:
+        db_table = "brief_actions"
