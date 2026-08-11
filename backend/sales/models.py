@@ -8,7 +8,7 @@ class Sale(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     business = models.ForeignKey(Business, on_delete=models.CASCADE, related_name="sales")
     sale_date = models.DateField()
-    recorded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    recorded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, db_column="recorded_by")
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
