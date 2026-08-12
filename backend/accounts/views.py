@@ -64,3 +64,21 @@ class StaffViewSet(viewsets.ViewSet):
             StaffFeatureGrant.objects.create(staff=staff, feature=f, granted_by=request.user)
 
         return Response(StaffSerializer(staff).data)
+
+    @action(detail=True, methods=["patch"])
+    def status(self, request, pk=None):
+        """Nonaktifin/aktifin staff (soft-deactivate, bukan hard delete —
+        biar history sale/stock movement yang dia catat tetep ke-atribusi).
+        Nonaktif = is_active=False, otomatis nolak token auth dia."""
+        try:
+            staff = User.objects.get(id=pk, business=request.user.business, role=User.STAFF)
+        except User.DoesNotExist:
+            return Response(status=404)
+
+        is_active = request.data.get("is_active")
+        if not isinstance(is_active, bool):
+            return Response({"error": "is_active harus boolean"}, status=status.HTTP_400_BAD_REQUEST)
+
+        staff.is_active = is_active
+        staff.save(update_fields=["is_active"])
+        return Response(StaffSerializer(staff).data)

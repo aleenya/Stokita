@@ -4,20 +4,12 @@ from datetime import date, timedelta
 from django.db.models import F, DecimalField, ExpressionWrapper, Sum
 from inventory.models import Ingredient, StockMovement
 from menus.models import Menu
-from sales.views import ProfitAnalyticsViewSet
 from sales.models import SaleItem
+from sales.services import classify_margin_state
 from .models import DailyBrief, BriefAction, ActionImpactCheck
 from .ai import generate_recommendations, analyze_impact
 from django.utils import timezone
- 
-def _classify(margin_pct, target):
-    """Same thresholds as sales.views.ProfitAnalyticsViewSet._classify."""
-    if margin_pct >= target:
-        return "high"
-    if margin_pct >= target * 0.6:
-        return "stable"
-    return "low"
- 
+
 def _build_context(business):
     # ingredients snapshot
     ingredients = [{
@@ -43,7 +35,7 @@ def _build_context(business):
             "menu_id": str(menu.id),
             "name": menu.name,
             "margin_pct": round(margin_pct, 1),
-            "state": _classify(margin_pct, float(menu.target_margin)),
+            "state": classify_margin_state(margin_pct, float(menu.target_margin)),
         })
  
     # expiring soon (within 3 days)

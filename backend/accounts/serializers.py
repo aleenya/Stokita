@@ -30,7 +30,7 @@ class StaffSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["id", "username", "full_name", "role", "granted_features"]
+        fields = ["id", "username", "full_name", "role", "granted_features", "is_active"]
 
     def get_full_name(self, obj):
         return obj.get_full_name()
