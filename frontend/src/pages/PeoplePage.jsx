@@ -1,6 +1,16 @@
 import { useState, useEffect } from 'react'
 import api from '../api/client'
 
+/* =========================================================================
+   DESIGN TOKENS — sama persis dengan Dashboard.jsx / Sidebar.jsx / IngredientsPage.jsx
+   ========================================================================= */
+const SHADOW_CARD =
+  'shadow-[0_2px_6px_rgba(24,35,61,0.06),0_10px_24px_-8px_rgba(24,35,61,0.22)]'
+const BTN_PRIMARY =
+  'text-sm font-semibold text-white bg-[#28579C] hover:bg-[#1E4278] transition-colors rounded-full px-4 py-2 disabled:opacity-50'
+const BTN_SECONDARY =
+  'text-xs font-semibold text-[#5B6B82] border border-[#E4E2DC] rounded-full px-3 py-1.5 hover:bg-[#F7F5F0] transition-colors disabled:opacity-50'
+
 const FEATURES = [
   { code: 'ingredients_manage', label: 'Manage Ingredients' },
   { code: 'menus_manage', label: 'Manage Menus' },
@@ -78,32 +88,37 @@ export default function PeoplePage() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="font-[Fraunces,serif] text-2xl text-[#1F2A24] mb-2">People</h1>
-      <p className="text-sm text-[#5C6B62] mb-6">
+      <h1 className="text-[22px] font-extrabold tracking-tight text-[#18233D] mb-1">People</h1>
+      <p className="text-sm text-[#5B6B82] mb-6">
         Kasih akses tambahan ke staff tertentu yang kamu percaya — di luar akses default staff.
       </p>
 
-      {error && <p className="text-sm text-[#C1443B] mb-4">{error}</p>}
+      {error && <p className="text-sm text-[#B8433B] mb-4">{error}</p>}
 
       {loading ? (
-        <p className="text-sm text-[#5C6B62]">Loading...</p>
+        <p className="text-sm text-[#5B6B82]">Loading...</p>
       ) : staff.length === 0 ? (
-        <p className="text-sm text-[#5C6B62]">Belum ada staff di business ini.</p>
+        <p className="text-sm text-[#5B6B82]">Belum ada staff di business ini.</p>
       ) : (
         <div className="space-y-4">
           {staff.map((s) => (
-            <div key={s.id} className={`bg-white border border-[#D8D0BF] rounded-md p-4 ${s.is_active === false ? 'opacity-60' : ''}`}>
-              <div className="flex items-center justify-between mb-3">
-                <p className="font-medium text-[#1F2A24]">
-                  {s.full_name || s.username} <span className="text-xs text-[#5C6B62]">({s.username})</span>
+            <div
+              key={s.id}
+              className={`bg-white rounded-xl ${SHADOW_CARD} p-5 ${s.is_active === false ? 'opacity-60' : ''}`}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <p className="font-semibold text-[#18233D]">
+                  {s.full_name || s.username} <span className="text-xs font-normal text-[#8B96A6]">({s.username})</span>
                   {s.is_active === false && (
-                    <span className="ml-2 text-xs text-[#C1443B]">Nonaktif</span>
+                    <span className="ml-2 text-xs font-semibold text-[#B8433B] bg-[#FBEBEA] rounded-full px-2 py-0.5">
+                      Nonaktif
+                    </span>
                   )}
                 </p>
                 <button
                   onClick={() => toggleStatus(s.id, s.is_active === false)}
                   disabled={togglingStatus === s.id}
-                  className="text-xs border border-[#D8D0BF] rounded-md px-3 py-1 text-[#1F2A24] disabled:opacity-50"
+                  className={BTN_SECONDARY}
                 >
                   {togglingStatus === s.id
                     ? '...'
@@ -111,13 +126,14 @@ export default function PeoplePage() {
                 </button>
               </div>
 
-              <div className="flex flex-wrap gap-4 mb-3">
+              <div className="flex flex-wrap gap-4 mb-4">
                 {FEATURES.map((f) => (
-                  <label key={f.code} className="flex items-center gap-2 text-sm text-[#1F2A24]">
+                  <label key={f.code} className="flex items-center gap-2 text-sm text-[#18233D]">
                     <input
                       type="checkbox"
                       checked={draft[s.id]?.has(f.code) || false}
                       onChange={() => toggleFeature(s.id, f.code)}
+                      className="rounded border-[#E4E2DC] text-[#28579C] focus:ring-[#28579C]"
                     />
                     {f.label}
                   </label>
@@ -127,7 +143,7 @@ export default function PeoplePage() {
               <button
                 onClick={() => saveGrants(s.id)}
                 disabled={saving === s.id}
-                className="bg-[#16211B] text-[#F3EFE4] rounded-md px-4 py-2 text-sm disabled:opacity-50"
+                className={BTN_PRIMARY}
               >
                 {saving === s.id ? 'Saving...' : 'Save Access'}
               </button>
