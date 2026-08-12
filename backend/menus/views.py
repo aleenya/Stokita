@@ -1,6 +1,7 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from inventory.models import Ingredient
 from .models import Menu, MenuRecipe
 from .serializers import MenuSerializer
 from rest_framework.permissions import IsAuthenticated
@@ -16,7 +17,9 @@ class MenuViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
  
     def get_queryset(self):
-        return Menu.objects.filter(business=self.request.user.business)
+        return Menu.objects.filter(
+            business=self.request.user.business
+        ).prefetch_related("recipe_lines__ingredient")
  
     def perform_create(self, serializer):
         serializer.save(business=self.request.user.business)
@@ -26,6 +29,20 @@ class MenuViewSet(viewsets.ModelViewSet):
         """Replace the whole recipe line set for this menu."""
         menu = self.get_object()
         lines = request.data.get("lines", [])
+
+        ingredient_ids = [line["ingredient_id"] for line in lines]
+        owned_ids = set(
+            Ingredient.objects.filter(
+                id__in=ingredient_ids, business=request.user.business
+            ).values_list("id", flat=True)
+        )
+        foreign_ids = [str(i) for i in ingredient_ids if str(i) not in {str(o) for o in owned_ids}]
+        if foreign_ids:
+            return Response(
+                {"error": f"Ingredient(s) not found in your business: {foreign_ids}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         menu.recipe_lines.all().delete()
         for line in lines:
             MenuRecipe.objects.create(
