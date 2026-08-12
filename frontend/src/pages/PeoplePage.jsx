@@ -25,6 +25,21 @@ export default function PeoplePage() {
   const [saving, setSaving] = useState(null) // id staff yang lagi disave
   const [togglingStatus, setTogglingStatus] = useState(null) // id staff yang lagi diaktif/nonaktifin
   const [draft, setDraft] = useState({}) // { [staffId]: Set(feature codes) }
+  const [businessCode, setBusinessCode] = useState('')
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    api.get('/me/')
+      .then((res) => setBusinessCode(res.data.business_username || ''))
+      .catch(() => {})
+  }, [])
+
+  function copyBusinessCode() {
+    navigator.clipboard.writeText(businessCode).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    })
+  }
 
   async function fetchStaff() {
     setLoading(true)
@@ -93,6 +108,23 @@ export default function PeoplePage() {
         Kasih akses tambahan ke staff tertentu yang kamu percaya — di luar akses default staff.
       </p>
 
+      {businessCode && (
+        <div className={`bg-white rounded-xl ${SHADOW_CARD} p-5 mb-6 flex items-center justify-between gap-4`}>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#8B96A6] mb-1">
+              Kode join staff
+            </p>
+            <p className="font-mono text-sm text-[#18233D]">{businessCode}</p>
+            <p className="text-xs text-[#8B96A6] mt-1">
+              Kasih kode ini ke staff yang mau join business kamu.
+            </p>
+          </div>
+          <button onClick={copyBusinessCode} className={BTN_SECONDARY}>
+            {copied ? 'Tersalin!' : 'Salin'}
+          </button>
+        </div>
+      )}
+
       {error && <p className="text-sm text-[#B8433B] mb-4">{error}</p>}
 
       {loading ? (
@@ -109,7 +141,12 @@ export default function PeoplePage() {
               <div className="flex items-center justify-between mb-4">
                 <p className="font-semibold text-[#18233D]">
                   {s.full_name || s.username} <span className="text-xs font-normal text-[#8B96A6]">({s.username})</span>
-                  {s.is_active === false && (
+                  {s.is_active === false && !s.last_login && (
+                    <span className="ml-2 text-xs font-semibold text-[#28579C] bg-[#EAF1FB] rounded-full px-2 py-0.5">
+                      Menunggu approval
+                    </span>
+                  )}
+                  {s.is_active === false && s.last_login && (
                     <span className="ml-2 text-xs font-semibold text-[#B8433B] bg-[#FBEBEA] rounded-full px-2 py-0.5">
                       Nonaktif
                     </span>
@@ -122,7 +159,9 @@ export default function PeoplePage() {
                 >
                   {togglingStatus === s.id
                     ? '...'
-                    : s.is_active === false ? 'Aktifkan' : 'Nonaktifkan'}
+                    : s.is_active === false
+                      ? (s.last_login ? 'Aktifkan' : 'Approve')
+                      : 'Nonaktifkan'}
                 </button>
               </div>
 

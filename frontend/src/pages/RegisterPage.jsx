@@ -39,6 +39,7 @@ export default function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
 
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [pendingApproval, setPendingApproval] = useState(false)
 
   function handleBusinessNameChange(value) {
     setBusinessName(value)
@@ -83,8 +84,15 @@ export default function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
           : { business_username: staffCode }),
       }
       const res = await api.post('/auth/register/', payload)
-      const token = res.data.token
 
+      if (res.data.is_active === false) {
+        // Staff account created but not yet approved by the owner — the
+        // token won't work against the API until they're activated.
+        setPendingApproval(true)
+        return
+      }
+
+      const token = res.data.token
       localStorage.setItem('stokita_token', token)
       api.defaults.headers.common['Authorization'] = `Token ${token}`
 
@@ -94,6 +102,37 @@ export default function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (pendingApproval) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#FAF6EC] px-4 py-12 font-[Inter,sans-serif]">
+        <div className="w-full max-w-md text-center">
+          <div className="flex items-center gap-2 mb-8 justify-center">
+            <div className="w-2 h-2 rounded-full bg-[#E2A33D]" />
+            <span className="text-sm tracking-[0.2em] uppercase text-[#5C6B62] font-[IBM_Plex_Mono,monospace]">
+              Stokita
+            </span>
+          </div>
+
+          <h1 className="font-[Fraunces,serif] font-semibold text-2xl text-[#1F2A24] mb-3">
+            Account created
+          </h1>
+          <p className="text-sm text-[#5C6B62] mb-8">
+            Your account is waiting for your business owner to activate it under People.
+            You'll be able to sign in once they do.
+          </p>
+
+          <button
+            type="button"
+            onClick={onSwitchToLogin}
+            className="w-full bg-[#16211B] text-[#F3EFE4] rounded-md py-2.5 font-medium tracking-wide hover:bg-[#1D2B23] transition"
+          >
+            Back to sign in
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -202,7 +241,8 @@ export default function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
                   placeholder="bu-rinis-cloud-kitchen"
                 />
                 <p className="text-xs text-[#8A8377] mt-1.5">
-                  Your staff will use this code to join. Auto-filled from the business name — edit if you'd like something shorter.
+                  We'll add a random string to the end for security, so the final code won't be guessable.
+                  You'll find the full code under People after signing up.
                 </p>
               </div>
             </>
