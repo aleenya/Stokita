@@ -27,14 +27,23 @@ def estimate_shelf_life(ingredient_name: str, notes: str = ""):
         Nama bahan: {ingredient_name}
         {"Catatan tambahan dari user: " + notes if notes else ""}
 
+        PENTING: "estimated_days" harus berupa SATU angka pasti, bukan rentang.
+        Kalau umur simpan bahan ini biasanya berupa rentang (misal 10-14 hari),
+        gunakan ANGKA BATAS BAWAH dari rentang tersebut (contoh: 10, bukan 12
+        atau 14). Lebih baik konservatif/aman daripada terlalu optimis, supaya
+        bahan tidak dianggap masih layak pakai padahal sebenarnya sudah lewat
+        waktu amannya.
+
         Jawab HANYA dalam format JSON berikut, tanpa markdown, tanpa penjelasan
-        di luar JSON. Isi "note" wajib menggunakan Bahasa Indonesia:
+        di luar JSON. Isi "note" wajib menggunakan Bahasa Indonesia, dan boleh
+        tetap menyebutkan rentang aslinya di situ untuk konteks:
         {{
         "estimated_days": integer,
         "confidence": "high" | "medium" | "low",
         "note": "alasan singkat, misalnya umur simpan umum untuk jenis bahan ini"
         }}
     """
+
     try:
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
         response = client.models.generate_content(
