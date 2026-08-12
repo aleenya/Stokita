@@ -3,10 +3,16 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import Menu, MenuRecipe
 from .serializers import MenuSerializer
- 
+from rest_framework.permissions import IsAuthenticated
+from accounts.permissions import IsOwner
  
 class MenuViewSet(viewsets.ModelViewSet):
     serializer_class = MenuSerializer
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy", "recipe"]:
+            return [IsAuthenticated(), IsOwner()]
+        return [IsAuthenticated()]
  
     def get_queryset(self):
         return Menu.objects.filter(business=self.request.user.business)

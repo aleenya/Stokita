@@ -23,6 +23,10 @@ export default function IngredientsPage() {
   const [receiptError, setReceiptError] = useState('')
   const [bulkSubmitting, setBulkSubmitting] = useState(false)
 
+  // inline edit state (name/unit/cost/threshold — bukan stock, itu cuma lewat restock)
+  const [editingId, setEditingId] = useState(null)
+  const [editForm, setEditForm] = useState({ name: '', unit: '', cost_per_unit: '', low_stock_threshold: '' })
+
   async function fetchIngredients() {
     setLoading(true)
     try {
@@ -118,6 +122,33 @@ export default function IngredientsPage() {
       fetchIngredients()
     } catch (err) {
       setError('Gagal restock.')
+    }
+  }
+
+  // === Edit ingredient (name/unit/cost/threshold — stock sengaja dikunci, cuma lewat restock) ===
+
+  function startEdit(ing) {
+    setEditingId(ing.id)
+    setEditForm({
+      name: ing.name,
+      unit: ing.unit,
+      cost_per_unit: ing.cost_per_unit,
+      low_stock_threshold: ing.low_stock_threshold ?? '',
+    })
+  }
+
+  async function saveEdit(id) {
+    try {
+      await api.patch(`/ingredients/${id}/`, {
+        name: editForm.name,
+        unit: editForm.unit,
+        cost_per_unit: editForm.cost_per_unit,
+        low_stock_threshold: editForm.low_stock_threshold || null,
+      })
+      setEditingId(null)
+      fetchIngredients()
+    } catch (err) {
+      setError('Gagal update ingredient.')
     }
   }
 
@@ -274,7 +305,7 @@ export default function IngredientsPage() {
 
       {error && <p className="text-sm text-[#C1443B] mb-4">{error}</p>}
 
-      {/* List + per-row restock (tests: restock, estimate-expiry) */}
+      {/* List + per-row restock (tests: restock, estimate-expiry) + inline edit */}
       {loading ? (
         <p className="text-sm text-[#5C6B62]">Loading...</p>
       ) : (
@@ -285,50 +316,89 @@ export default function IngredientsPage() {
               <th className="text-left px-4 py-2">Stock</th>
               <th className="text-left px-4 py-2">Cost/unit</th>
               <th className="text-left px-4 py-2">Restock</th>
+              <th className="text-left px-4 py-2">Edit</th>
             </tr>
           </thead>
           <tbody>
             {ingredients.map((ing) => {
               const row = restockState[ing.id] || {}
+              const isEditing = editingId === ing.id
               return (
                 <tr key={ing.id} className="border-t border-[#D8D0BF] align-top">
-                  <td className="px-4 py-2">{ing.name}</td>
-                  <td className="px-4 py-2">{ing.current_stock} {ing.unit}</td>
-                  <td className="px-4 py-2">{ing.cost_per_unit}</td>
-                  <td className="px-4 py-2">
-                    <div className="flex flex-wrap gap-2 items-center">
-                      <input
-                        type="number" step="0.001"
-                        value={row.qty || ''}
-                        onChange={(e) => updateRestockRow(ing.id, { qty: e.target.value })}
-                        className="border border-[#D8D0BF] rounded-md px-2 py-1 w-20 text-sm"
-                        placeholder="qty"
-                      />
-                      <input
-                        type="date"
-                        value={row.expiry_date || ''}
-                        onChange={(e) => updateRestockRow(ing.id, { expiry_date: e.target.value })}
-                        className="border border-[#D8D0BF] rounded-md px-2 py-1 text-sm"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleGenerateExpiry(ing)}
-                        disabled={row.aiLoading}
-                        className="text-[#8B6E5C] text-xs font-medium hover:underline disabled:opacity-50"
-                      >
-                        {row.aiLoading ? 'Generating...' : '✨ AI expiry'}
-                      </button>
-                      <button
-                        onClick={() => handleRestock(ing.id)}
-                        className="text-[#5C8B6E] text-xs font-medium hover:underline"
-                      >
-                        Restock
-                      </button>
-                    </div>
-                    {row.aiNote && (
-                      <p className="text-xs text-[#5C6B62] mt-1">{row.aiNote}</p>
-                    )}
-                  </td>
+                  {isEditing ? (
+                    <>
+                      <td className="px-4 py-2">
+                        <input
+                          value={editForm.name}
+                          onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                          className="border border-[#D8D0BF] rounded-md px-2 py-1 text-sm w-full"
+                        />
+                      </td>
+                      <td className="px-4 py-2 text-xs text-[#5C6B62]">{ing.current_stock} {ing.unit} (locked)</td>
+                      <td className="px-4 py-2">
+                        <input
+                          type="number" step="0.01"
+                          value={editForm.cost_per_unit}
+                          onChange={(e) => setEditForm({ ...editForm, cost_per_unit: e.target.value })}
+                          className="border border-[#D8D0BF] rounded-md px-2 py-1 text-sm w-24"
+                        />
+                      </td>
+                      <td className="px-4 py-2 text-xs text-[#5C6B62]">—</td>
+                      <td className="px-4 py-2 flex gap-2">
+                        <button onClick={() => saveEdit(ing.id)} className="text-[#5C8B6E] text-xs font-medium hover:underline">
+                          Save
+                        </button>
+                        <button onClick={() => setEditingId(null)} className="text-[#5C6B62] text-xs">
+                          Cancel
+                        </button>
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="px-4 py-2">{ing.name}</td>
+                      <td className="px-4 py-2">{ing.current_stock} {ing.unit}</td>
+                      <td className="px-4 py-2">{ing.cost_per_unit}</td>
+                      <td className="px-4 py-2">
+                        <div className="flex flex-wrap gap-2 items-center">
+                          <input
+                            type="number" step="0.001"
+                            value={row.qty || ''}
+                            onChange={(e) => updateRestockRow(ing.id, { qty: e.target.value })}
+                            className="border border-[#D8D0BF] rounded-md px-2 py-1 w-20 text-sm"
+                            placeholder="qty"
+                          />
+                          <input
+                            type="date"
+                            value={row.expiry_date || ''}
+                            onChange={(e) => updateRestockRow(ing.id, { expiry_date: e.target.value })}
+                            className="border border-[#D8D0BF] rounded-md px-2 py-1 text-sm"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleGenerateExpiry(ing)}
+                            disabled={row.aiLoading}
+                            className="text-[#8B6E5C] text-xs font-medium hover:underline disabled:opacity-50"
+                          >
+                            {row.aiLoading ? 'Generating...' : '✨ AI expiry'}
+                          </button>
+                          <button
+                            onClick={() => handleRestock(ing.id)}
+                            className="text-[#5C8B6E] text-xs font-medium hover:underline"
+                          >
+                            Restock
+                          </button>
+                        </div>
+                        {row.aiNote && (
+                          <p className="text-xs text-[#5C6B62] mt-1">{row.aiNote}</p>
+                        )}
+                      </td>
+                      <td className="px-4 py-2">
+                        <button onClick={() => startEdit(ing)} className="text-[#E2A33D] text-xs font-medium hover:underline">
+                          Edit
+                        </button>
+                      </td>
+                    </>
+                  )}
                 </tr>
               )
             })}

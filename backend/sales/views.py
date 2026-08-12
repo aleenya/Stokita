@@ -6,6 +6,8 @@ from menus.models import Menu
 from .models import Sale, SaleItem
 from .serializers import SaleSerializer
 from .services import record_sale
+from rest_framework.permissions import IsAuthenticated
+from accounts.permissions import IsOwner
  
  
 class SaleViewSet(viewsets.ModelViewSet):
@@ -30,6 +32,7 @@ class SaleViewSet(viewsets.ModelViewSet):
  
 class ProfitAnalyticsViewSet(viewsets.ViewSet):
     """F3: per-menu profit and health classification."""
+    permission_classes = [IsAuthenticated, IsOwner]
  
     def _classify(self, margin_pct, target):
         # thresholds are initial configurable rules, not fixed standards
@@ -37,7 +40,7 @@ class ProfitAnalyticsViewSet(viewsets.ViewSet):
             return "high"
         if margin_pct >= target * 0.6:
             return "stable"
-        return "low"
+        return "worrying"
  
     def list(self, request):
         business = request.user.business
