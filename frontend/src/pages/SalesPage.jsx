@@ -635,7 +635,7 @@ export default function SalesPage() {
       <section ref={importSectionRef} className="mb-8">
         <h2 className="text-[13px] font-bold text-[#18233D] uppercase tracking-wide mb-3">Import from CSV</h2>
         <CsvImportSection
-          menus={menus}
+          menus={menus.filter((m) => m.is_active)}
           onImported={() => { showSuccessToast('Sales berhasil direcord dari CSV.'); fetchAll(dateFilter) }}
         />
       </section>
@@ -707,7 +707,7 @@ export default function SalesPage() {
 
       {recordModalOpen && (
         <RecordSaleModal
-          menus={menus}
+          menus={menus.filter((m) => m.is_active)}
           onClose={() => setRecordModalOpen(false)}
           onSaved={() => {
             setRecordModalOpen(false)
