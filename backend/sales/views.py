@@ -3,7 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from menus.models import Menu
 from .models import Sale
-from .serializers import SaleSerializer
+from .serializers import RecordSaleSerializer, SaleSerializer
 from .services import record_sale, InsufficientStockError, compute_menu_profit_states
 from rest_framework.permissions import IsAuthenticated
 from accounts.permissions import IsOwner
@@ -29,12 +29,19 @@ class SaleViewSet(viewsets.ModelViewSet):
         return qs
  
     def create(self, request):
+        input_serializer = RecordSaleSerializer(data=request.data)
+        input_serializer.is_valid(raise_exception=True)
+        validated = input_serializer.validated_data
+
         try:
             sale = record_sale(
                 business=request.user.business,
                 user=request.user,
-                sale_date=request.data["sale_date"],
-                items=request.data["items"],
+                sale_date=validated["sale_date"],
+                items=[
+                    {"menu_id": str(item["menu_id"]), "quantity": item["quantity"]}
+                    for item in validated["items"]
+                ],
             )
         except InsufficientStockError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
