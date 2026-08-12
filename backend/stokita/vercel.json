@@ -1,0 +1,14 @@
+{
+  "builds": [
+    {
+      "src": "stokita/wsgi.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "stokita/wsgi.py"
+    }
+  ]
+}
