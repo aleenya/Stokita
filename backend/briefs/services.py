@@ -17,16 +17,16 @@ def _build_context(business):
         "current_stock": float(i.current_stock),
         "low_stock_threshold": float(i.low_stock_threshold) if i.low_stock_threshold else None,
     } for i in Ingredient.objects.filter(business=business)]
- 
+
     # profit states (reuse F3 logic)
     profit = []
     for menu in Menu.objects.filter(business=business):
         items = SaleItem.objects.filter(menu=menu, sale__business=business)
         agg = items.aggregate(
             revenue=Sum(ExpressionWrapper(F("unit_price") * F("quantity"),
-                        output_field=DecimalField())),
+                                          output_field=DecimalField())),
             cost=Sum(ExpressionWrapper(F("unit_cost") * F("quantity"),
-                     output_field=DecimalField())),
+                                       output_field=DecimalField())),
         )
         revenue = agg["revenue"] or 0
         cost = agg["cost"] or 0
@@ -37,7 +37,7 @@ def _build_context(business):
             "margin_pct": round(margin_pct, 1),
             "state": classify_margin_state(margin_pct, float(menu.target_margin)),
         })
- 
+
     # expiring soon (within 3 days)
     soon = date.today() + timedelta(days=3)
     expiring = StockMovement.objects.filter(
@@ -47,18 +47,31 @@ def _build_context(business):
     expiring_soon = [{
         "id": str(m.ingredient.id), "name": m.ingredient.name,
     } for m in expiring]
- 
+
     return {"ingredients": ingredients, "profit": profit, "expiring_soon": expiring_soon}
- 
- 
-def generate_daily_brief(business, brief_date=None):
+
+
+def generate_daily_brief(business, brief_date=None, force=False):
+    """
+    Generate (or return existing) brief for the day.
+
+    Kalau brief hari ini SUDAH ada dan force=False, langsung return brief
+    yang ada tanpa manggil AI lagi — jadi tombol "Generate" di empty state
+    aman diklik berkali-kali (misal double-click) tanpa boros API call.
+
+    force=True (dari tombol "Regenerate" manual) selalu bikin ulang.
+    """
     brief_date = brief_date or date.today()
-    brief, _ = DailyBrief.objects.get_or_create(business=business, brief_date=brief_date)
+    brief, created = DailyBrief.objects.get_or_create(business=business, brief_date=brief_date)
+
+    if not created and not force:
+        return brief  # udah ada hari ini, gak usah panggil AI lagi
+
     brief.actions.all().delete()
- 
+
     context = _build_context(business)
     actions = generate_recommendations(context)
- 
+
     for a in actions:
         BriefAction.objects.create(
             brief=brief,
@@ -68,7 +81,7 @@ def generate_daily_brief(business, brief_date=None):
             related_ingredient_id=a.get("related_ingredient_id"),
             rupiah_impact=a.get("rupiah_impact", 0),
         )
- 
+
     brief.summary = f"{len(actions)} actions to protect margin today"
     brief.save(update_fields=["summary"])
     return brief
