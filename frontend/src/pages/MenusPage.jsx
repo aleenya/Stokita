@@ -679,8 +679,35 @@ export default function MenusPage({ onLogout }) {
                   const belowTarget = margin !== null && margin < Number(menu.target_margin)
                   return (
                     <tr key={menu.id} className="border-t border-[#E4E2DC] hover:bg-[#F7F5F0]/60 transition-colors">
-                      <td className="px-5 py-3 text-[#18233D] font-medium">{menu.name}</td>
-                      <td className="px-5 py-3 text-right tabular-nums text-[#18233D]">Rp {formatRupiah(menu.sell_price)}</td>
+                      <td className="px-5 py-3 text-[#18233D] font-medium">
+                        <span className="inline-flex items-center gap-1.5">
+                          {menu.name}
+                          {menu.active_discount_pct && (
+                            <span className="text-[10px] font-bold text-[#2E7D53] bg-[#EAF5EE] rounded-full px-1.5 py-0.5">
+                              Diskon
+                            </span>
+                          )}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 text-right tabular-nums text-[#18233D]">
+                        {menu.active_discount_pct ? (
+                          <div className="flex flex-col items-end">
+                            <span className="text-xs text-[#8B96A6] line-through">
+                              Rp {formatRupiah(menu.sell_price)}
+                            </span>
+                            <span className="flex items-center gap-1.5">
+                              <span className="font-semibold text-[#2E7D53]">
+                                Rp {formatRupiah(menu.sell_price * (1 - menu.active_discount_pct / 100))}
+                              </span>
+                              <span className="text-[10px] font-bold text-[#2E7D53] bg-[#EAF5EE] rounded-full px-1.5 py-0.5">
+                                -{menu.active_discount_pct}%
+                              </span>
+                            </span>
+                          </div>
+                        ) : (
+                          `Rp ${formatRupiah(menu.sell_price)}`
+                        )}
+                      </td>
                       <td className="px-5 py-3 text-right tabular-nums text-[#5B6B82]">Rp {formatRupiah(menu.unit_cost)}</td>
                       <td className="px-5 py-3 text-right tabular-nums">
                         <span className="inline-flex items-center gap-1">

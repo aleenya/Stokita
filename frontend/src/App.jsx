@@ -18,6 +18,8 @@ function App() {
   const [me, setMe] = useState(null)
   const [page, setPage] = useState('dashboard')
   const [authView, setAuthView] = useState('login') // 'login' | 'register'
+  
+  // State untuk kontrol responsif Sidebar
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const checkSession = useCallback(async () => {
@@ -85,18 +87,20 @@ function App() {
 
   return (
     <div
-      className="flex h-screen overflow-hidden bg-[#F7F5F0] text-[#18233D] antialiased"
+      className="flex h-screen overflow-hidden bg-[#F7F5F0] text-[#18233D] antialiased relative"
       style={{
         fontFamily:
           "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
       }}
     >
+      {/* Topbar Mobile: Fixed di atas */}
       <MobileTopbar
         title={pageLabel(page)}
         open={sidebarOpen}
         onOpenMenu={() => setSidebarOpen(true)}
       />
 
+      {/* Sidebar: Mengatur dirinya sendiri untuk tampil full-height (fixed di mobile, static di desktop) */}
       <Sidebar
         page={page}
         onNavigate={setPage}
@@ -112,7 +116,8 @@ function App() {
         onMobileClose={() => setSidebarOpen(false)}
       />
 
-      <main className="flex-1 overflow-y-auto pt-14 md:pt-0">
+      {/* Konten Utama */}
+      <main className="flex-1 flex flex-col min-w-0 overflow-y-auto pt-14 md:pt-0 relative z-0">
         <div className={isFullBleed ? '' : 'p-4 sm:p-6 md:p-8'}>
           {page === 'dashboard' && <Dashboard ownerName={me?.full_name} onNavigate={setPage} />}
           {page === 'ingredients' && <IngredientsPage onLogout={handleLogout} />}

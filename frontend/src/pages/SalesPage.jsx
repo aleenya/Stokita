@@ -61,6 +61,10 @@ function todayStr() {
   return new Date().toISOString().slice(0, 10)
 }
 
+function menuNormalPrice(menus, id) {
+  return Number(menus.find((m) => m.id === id)?.sell_price) || null
+}
+
 function formatRupiah(n) {
   return 'Rp' + Math.round(Number(n) || 0).toLocaleString('id-ID')
 }
@@ -729,11 +733,26 @@ export default function SalesPage() {
                       </div>
                     </div>
                     <ul className="text-xs text-[#8B96A6] space-y-1">
-                      {sale.items.map((it) => (
-                        <li key={it.id}>
-                          {menuName(it.menu)} × {it.quantity} — {formatRupiah(it.unit_price * it.quantity)}
-                        </li>
-                      ))}
+                      {sale.items.map((it) => {
+                        const normalPrice = menuNormalPrice(menus, it.menu)
+                        const isDiscounted = normalPrice && Number(it.unit_price) < normalPrice
+                        const discountPct = isDiscounted ? Math.round((1 - it.unit_price / normalPrice) * 100) : null
+                        return (
+                          <li key={it.id} className="flex items-center gap-1.5">
+                            <span>
+                              {menuName(it.menu)} × {it.quantity} — {formatRupiah(it.unit_price * it.quantity)}
+                            </span>
+                            {isDiscounted && (
+                              <span
+                                className="text-[10px] font-bold text-[#2E7D53] bg-[#EAF5EE] rounded-full px-1.5 py-0.5"
+                                title={`Harga normal Rp${formatRupiah(normalPrice)}`}
+                              >
+                                Diskon ~{discountPct}%
+                              </span>
+                            )}
+                          </li>
+                        )
+                      })}
                     </ul>
                   </div>
                 )

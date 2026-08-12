@@ -18,6 +18,9 @@ class Menu(models.Model):
     )  # %
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    active_discount_pct = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    active_discount_ingredient = models.ForeignKey(Ingredient, on_delete=models.SET_NULL, null=True, blank=True)
+    active_discount_expiry_date = models.DateField(null=True, blank=True)  # snapshot expiry batch pemicu diskon
 
     class Meta:
         db_table = "menus"
