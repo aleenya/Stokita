@@ -22,11 +22,23 @@ class IngredientViewSet(viewsets.ModelViewSet):
         return Ingredient.objects.filter(business=self.request.user.business)
  
     def perform_create(self, serializer):
-        serializer.save(business=self.request.user.business)
+        ingredient = serializer.save(business=self.request.user.business)
+        initial_stock = self.request.data.get("current_stock")
+        if initial_stock and Decimal(str(initial_stock)) > 0:
+            qty = Decimal(str(initial_stock))
+            expiry = self.request.data.get("expiry_date")
+            StockMovement.objects.create(
+                ingredient=ingredient, change_qty=qty,
+                movement_type=StockMovement.RESTOCK,
+                expiry_date=expiry or None,
+                created_by=self.request.user,
+            )
+            ingredient.current_stock = qty
+            ingredient.save(update_fields=["current_stock"])
 
     def perform_update(self, serializer):
         serializer.save(current_stock=serializer.instance.current_stock)
- 
+
     @action(detail=True, methods=["post"])
     def restock(self, request, pk=None):
         ingredient = self.get_object()
