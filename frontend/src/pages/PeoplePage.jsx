@@ -13,6 +13,7 @@ export default function PeoplePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(null) // id staff yang lagi disave
+  const [togglingStatus, setTogglingStatus] = useState(null) // id staff yang lagi diaktif/nonaktifin
   const [draft, setDraft] = useState({}) // { [staffId]: Set(feature codes) }
 
   async function fetchStaff() {
@@ -63,6 +64,18 @@ export default function PeoplePage() {
     }
   }
 
+  async function toggleStatus(staffId, nextActive) {
+    setTogglingStatus(staffId)
+    try {
+      await api.patch(`/staff/${staffId}/status/`, { is_active: nextActive })
+      fetchStaff()
+    } catch (err) {
+      setError('Gagal ubah status staff.')
+    } finally {
+      setTogglingStatus(null)
+    }
+  }
+
   return (
     <div className="max-w-3xl">
       <h1 className="font-[Fraunces,serif] text-2xl text-[#1F2A24] mb-2">People</h1>
@@ -79,10 +92,24 @@ export default function PeoplePage() {
       ) : (
         <div className="space-y-4">
           {staff.map((s) => (
-            <div key={s.id} className="bg-white border border-[#D8D0BF] rounded-md p-4">
-              <p className="font-medium text-[#1F2A24] mb-3">
-                {s.full_name || s.username} <span className="text-xs text-[#5C6B62]">({s.username})</span>
-              </p>
+            <div key={s.id} className={`bg-white border border-[#D8D0BF] rounded-md p-4 ${s.is_active === false ? 'opacity-60' : ''}`}>
+              <div className="flex items-center justify-between mb-3">
+                <p className="font-medium text-[#1F2A24]">
+                  {s.full_name || s.username} <span className="text-xs text-[#5C6B62]">({s.username})</span>
+                  {s.is_active === false && (
+                    <span className="ml-2 text-xs text-[#C1443B]">Nonaktif</span>
+                  )}
+                </p>
+                <button
+                  onClick={() => toggleStatus(s.id, s.is_active === false)}
+                  disabled={togglingStatus === s.id}
+                  className="text-xs border border-[#D8D0BF] rounded-md px-3 py-1 text-[#1F2A24] disabled:opacity-50"
+                >
+                  {togglingStatus === s.id
+                    ? '...'
+                    : s.is_active === false ? 'Aktifkan' : 'Nonaktifkan'}
+                </button>
+              </div>
 
               <div className="flex flex-wrap gap-4 mb-3">
                 {FEATURES.map((f) => (
