@@ -3,7 +3,7 @@ cost so profit (F3) can be computed later. Runs in a single transaction."""
 from decimal import Decimal
 from django.db import transaction
 from django.db.models import F, DecimalField, ExpressionWrapper, Sum
-from inventory.models import StockMovement
+from inventory.models import Ingredient, StockMovement
 from menus.models import Menu
 from .models import Sale, SaleItem
 
@@ -99,3 +99,17 @@ def record_sale(business, user, sale_date, items):
             )
 
     return sale
+
+
+@transaction.atomic
+def delete_sale(sale):
+    """B7: deleting a sale must give back the stock it deducted, or a
+    wrong/duplicate entry that gets removed leaves ingredients
+    permanently short by that amount. StockMovement.related_sale is
+    SET_NULL, so without this the movements would just survive orphaned
+    and current_stock would never be corrected."""
+    for movement in sale.stock_movements.all():
+        ingredient = Ingredient.objects.select_for_update().get(pk=movement.ingredient_id)
+        ingredient.current_stock -= movement.change_qty  # change_qty is negative for sale deductions, so this adds it back
+        ingredient.save(update_fields=["current_stock"])
+    sale.delete()

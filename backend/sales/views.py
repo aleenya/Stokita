@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from menus.models import Menu
 from .models import Sale
 from .serializers import RecordSaleSerializer, SaleSerializer
-from .services import record_sale, InsufficientStockError, compute_menu_profit_states
+from .services import record_sale, InsufficientStockError, compute_menu_profit_states, delete_sale
 from rest_framework.permissions import IsAuthenticated
 from accounts.permissions import IsOwner
 from accounts.permissions import feature_required
@@ -48,6 +48,9 @@ class SaleViewSet(viewsets.ModelViewSet):
         except Menu.DoesNotExist:
             return Response({"error": "Menu gak ditemukan."}, status=status.HTTP_400_BAD_REQUEST)
         return Response(SaleSerializer(sale).data, status=status.HTTP_201_CREATED)
+
+    def perform_destroy(self, instance):
+        delete_sale(instance)
 
     @action(detail=False, methods=["post"], url_path="parse-csv")
     def parse_csv(self, request):
