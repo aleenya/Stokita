@@ -78,10 +78,14 @@ def parse_receipt(image_bytes: bytes, mime_type: str):
 
             Jawab HANYA dalam format JSON array, tanpa markdown:
             [
-            {"name": "nama bahan (singkat & umum)", "quantity": number, "unit": "kg|g|pcs|liter|ml"}
+            {"name": "nama bahan (singkat & umum)", "quantity": number, "unit": "kg|g|pcs|liter|ml",
+             "total_price": number}
             ]
 
             Kalau quantity tidak jelas dari struk, gunakan 1 sebagai default.
+            "total_price" adalah harga TOTAL baris itu (bukan harga satuan) dalam Rupiah,
+            kalau kelihatan jelas di struk. Kalau harganya gak kebaca jelas, isi null —
+            JANGAN menebak angka.
             Kalau tidak ada item yang bisa dikenali, jawab array kosong [].
         """
     try:
