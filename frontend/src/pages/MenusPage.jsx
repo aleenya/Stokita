@@ -1,6 +1,28 @@
 import { useEffect, useState } from 'react'
 import api from '../api/client'
 
+/* =========================================================================
+   DESIGN TOKENS — sama persis dengan Dashboard.jsx / Sidebar.jsx / IngredientsPage.jsx
+   (bg #F7F5F0 · navy #18233D · slate #5B6B82/#8B96A6 · border #E4E2DC/#CBD1DB ·
+   brand #28579C/#1E4278/#EAF1FB · success #2E7D53/#EAF5EE · critical #B8433B/#FBEBEA)
+   ========================================================================= */
+const SHADOW_CARD =
+  'shadow-[0_2px_6px_rgba(24,35,61,0.06),0_10px_24px_-8px_rgba(24,35,61,0.22)]'
+const SHADOW_FLOAT =
+  'shadow-[0_14px_32px_-10px_rgba(20,29,52,0.28),0_2px_8px_rgba(20,29,52,0.08)]'
+
+const LABEL = 'block text-xs uppercase tracking-wide text-[#8B96A6] mb-1.5'
+const INPUT =
+  'w-full bg-white border border-[#E4E2DC] rounded-md px-3 py-2 text-[#18233D] focus:outline-none focus:ring-2 focus:ring-[#28579C]/25 focus:border-[#28579C] transition-colors'
+const BTN_PRIMARY =
+  'text-sm font-semibold text-white bg-[#28579C] hover:bg-[#1E4278] transition-colors rounded-full px-4 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed'
+const BTN_SECONDARY =
+  'text-sm font-semibold text-[#5B6B82] border border-[#E4E2DC] rounded-full px-4 py-2.5 hover:bg-[#F7F5F0] transition-colors'
+const LINK_BRAND = 'text-[#28579C] hover:text-[#1E4278] transition-colors'
+const LINK_MUTED = 'text-[#5B6B82] hover:text-[#18233D] transition-colors'
+const LINK_CRITICAL = 'text-[#B8433B] hover:text-[#8F332C] transition-colors'
+const ERROR_BANNER = 'text-sm text-[#B8433B] bg-[#FBEBEA] rounded-md px-3 py-2'
+
 function extractError(err) {
   const data = err.response?.data
   if (!data) return ''
@@ -27,14 +49,14 @@ function marginPct(menu) {
 
 function Modal({ title, onClose, children }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#16211B]/50 px-4">
-      <div className="w-full max-w-md bg-[#FAF6EC] rounded-lg shadow-xl p-6 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#18233D]/40 backdrop-blur-[1px] px-4">
+      <div className={`w-full max-w-md bg-white rounded-xl ${SHADOW_FLOAT} p-6 max-h-[90vh] overflow-y-auto`}>
         <div className="flex items-center justify-between mb-5">
-          <h3 className="font-[Fraunces,serif] font-semibold text-xl text-[#1F2A24]">{title}</h3>
+          <h3 className="text-[19px] font-bold text-[#18233D]">{title}</h3>
           <button
             onClick={onClose}
             aria-label="Tutup"
-            className="text-[#8A8377] hover:text-[#1F2A24] transition text-xl leading-none"
+            className="w-7 h-7 flex items-center justify-center rounded-full text-[#8B96A6] hover:bg-[#F7F5F0] hover:text-[#18233D] transition-colors text-xl leading-none"
           >
             ×
           </button>
@@ -88,79 +110,61 @@ function MenuFormModal({ initial, onClose, onSaved }) {
     <Modal title={isEdit ? 'Edit menu' : 'Tambah menu'} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         <div>
-          <label className="block text-xs font-medium tracking-[0.05em] uppercase text-[#5C6B62] mb-2">
-            Nama menu
-          </label>
+          <label className={LABEL}>Nama menu</label>
           <input
             type="text"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="w-full bg-white border border-[#D8D0BF] rounded-md px-3 py-2 text-[#1F2A24] focus:outline-none focus:ring-2 focus:ring-[#E2A33D] focus:border-transparent transition"
+            className={INPUT}
             placeholder="Chicken Rice Bowl"
           />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-medium tracking-[0.05em] uppercase text-[#5C6B62] mb-2">
-              Harga jual
-            </label>
+            <label className={LABEL}>Harga jual</label>
             <input
               type="number"
               step="0.01"
               min="0"
               value={form.sell_price}
               onChange={(e) => setForm({ ...form, sell_price: e.target.value })}
-              className="w-full bg-white border border-[#D8D0BF] rounded-md px-3 py-2 text-[#1F2A24] focus:outline-none focus:ring-2 focus:ring-[#E2A33D] focus:border-transparent transition"
+              className={INPUT}
               placeholder="0.00"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium tracking-[0.05em] uppercase text-[#5C6B62] mb-2">
-              Target margin (%)
-            </label>
+            <label className={LABEL}>Target margin (%)</label>
             <input
               type="number"
               step="0.01"
               min="0"
               value={form.target_margin}
               onChange={(e) => setForm({ ...form, target_margin: e.target.value })}
-              className="w-full bg-white border border-[#D8D0BF] rounded-md px-3 py-2 text-[#1F2A24] focus:outline-none focus:ring-2 focus:ring-[#E2A33D] focus:border-transparent transition"
+              className={INPUT}
               placeholder="30"
             />
           </div>
         </div>
 
-        <label className="flex items-center gap-2 text-sm text-[#1F2A24]">
+        <label className="flex items-center gap-2 text-sm text-[#18233D]">
           <input
             type="checkbox"
             checked={form.is_active}
             onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
-            className="rounded border-[#D8D0BF] text-[#E2A33D] focus:ring-[#E2A33D]"
+            className="rounded border-[#E4E2DC] text-[#28579C] focus:ring-[#28579C]"
           />
           Menu aktif (tampil di daftar jual)
         </label>
 
-        {error && (
-          <p className="text-sm text-[#C1443B] bg-[#C1443B]/10 border border-[#C1443B]/30 rounded-md px-3 py-2">
-            {error}
-          </p>
-        )}
+        {error && <p className={ERROR_BANNER}>{error}</p>}
 
         <div className="flex gap-3 pt-1">
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 border border-[#D8D0BF] text-[#5C6B62] rounded-md py-2.5 font-medium hover:bg-[#F3EFE4] transition"
-          >
+          <button type="button" onClick={onClose} className={`flex-1 ${BTN_SECONDARY}`}>
             Batal
           </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex-1 bg-[#16211B] text-[#F3EFE4] rounded-md py-2.5 font-medium hover:bg-[#1D2B23] disabled:opacity-50 disabled:cursor-not-allowed transition"
-          >
+          <button type="submit" disabled={saving} className={`flex-1 ${BTN_PRIMARY}`}>
             {saving ? 'Menyimpan…' : 'Simpan'}
           </button>
         </div>
@@ -225,7 +229,7 @@ function RecipeModal({ menu, ingredients, onClose, onSaved }) {
     <Modal title={`Resep — ${menu.name}`} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         {lines.length === 0 && (
-          <p className="text-sm text-[#5C6B62]">Belum ada ingredient di resep ini.</p>
+          <p className="text-sm text-[#5B6B82]">Belum ada ingredient di resep ini.</p>
         )}
 
         <div className="space-y-3">
@@ -234,13 +238,11 @@ function RecipeModal({ menu, ingredients, onClose, onSaved }) {
             return (
               <div key={idx} className="flex items-end gap-2">
                 <div className="flex-1">
-                  <label className="block text-xs font-medium tracking-[0.05em] uppercase text-[#5C6B62] mb-1">
-                    Ingredient
-                  </label>
+                  <label className={LABEL}>Ingredient</label>
                   <select
                     value={line.ingredient_id}
                     onChange={(e) => updateLine(idx, { ingredient_id: e.target.value })}
-                    className="w-full bg-white border border-[#D8D0BF] rounded-md px-3 py-2 text-[#1F2A24] focus:outline-none focus:ring-2 focus:ring-[#E2A33D] focus:border-transparent transition"
+                    className={INPUT}
                   >
                     <option value="">— pilih —</option>
                     {ingredients.map((i) => (
@@ -251,16 +253,14 @@ function RecipeModal({ menu, ingredients, onClose, onSaved }) {
                   </select>
                 </div>
                 <div className="w-28">
-                  <label className="block text-xs font-medium tracking-[0.05em] uppercase text-[#5C6B62] mb-1">
-                    Qty ({ing?.unit || 'unit'})
-                  </label>
+                  <label className={LABEL}>Qty ({ing?.unit || 'unit'})</label>
                   <input
                     type="number"
                     step="0.001"
                     min="0"
                     value={line.qty_per_serving}
                     onChange={(e) => updateLine(idx, { qty_per_serving: e.target.value })}
-                    className="w-full bg-white border border-[#D8D0BF] rounded-md px-3 py-2 text-[#1F2A24] focus:outline-none focus:ring-2 focus:ring-[#E2A33D] focus:border-transparent transition"
+                    className={INPUT}
                     placeholder="0"
                   />
                 </div>
@@ -268,7 +268,7 @@ function RecipeModal({ menu, ingredients, onClose, onSaved }) {
                   type="button"
                   onClick={() => removeLine(idx)}
                   aria-label="Hapus baris"
-                  className="mb-0.5 h-[38px] px-2 text-[#C1443B] hover:underline text-sm"
+                  className={`mb-0.5 h-[38px] px-2 text-sm font-semibold ${LINK_CRITICAL}`}
                 >
                   Hapus
                 </button>
@@ -281,30 +281,18 @@ function RecipeModal({ menu, ingredients, onClose, onSaved }) {
           type="button"
           onClick={addLine}
           disabled={lines.length >= ingredients.length}
-          className="text-sm text-[#5C8B6E] hover:underline disabled:opacity-50 disabled:no-underline"
+          className={`text-sm font-semibold ${LINK_BRAND} disabled:opacity-50`}
         >
           + Tambah ingredient
         </button>
 
-        {error && (
-          <p className="text-sm text-[#C1443B] bg-[#C1443B]/10 border border-[#C1443B]/30 rounded-md px-3 py-2">
-            {error}
-          </p>
-        )}
+        {error && <p className={ERROR_BANNER}>{error}</p>}
 
         <div className="flex gap-3 pt-1">
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 border border-[#D8D0BF] text-[#5C6B62] rounded-md py-2.5 font-medium hover:bg-[#F3EFE4] transition"
-          >
+          <button type="button" onClick={onClose} className={`flex-1 ${BTN_SECONDARY}`}>
             Batal
           </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex-1 bg-[#16211B] text-[#F3EFE4] rounded-md py-2.5 font-medium hover:bg-[#1D2B23] disabled:opacity-50 disabled:cursor-not-allowed transition"
-          >
+          <button type="submit" disabled={saving} className={`flex-1 ${BTN_PRIMARY}`}>
             {saving ? 'Menyimpan…' : 'Simpan resep'}
           </button>
         </div>
@@ -391,26 +379,23 @@ export default function MenusPage({ onLogout }) {
     <div className="max-w-5xl mx-auto">
       <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
         <div>
-          <h1 className="font-[Fraunces,serif] font-semibold text-3xl text-[#1F2A24]">Menus</h1>
-          <p className="text-sm text-[#5C6B62] mt-1">{menus.length} menu terdaftar</p>
+          <h1 className="text-[22px] font-extrabold tracking-tight text-[#18233D]">Menus</h1>
+          <p className="text-sm text-[#5B6B82] mt-1">{menus.length} menu terdaftar</p>
         </div>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="bg-[#E2A33D] text-[#1F2A24] rounded-md px-4 py-2.5 font-medium hover:opacity-90 transition"
-        >
+        <button onClick={() => setShowAddForm(true)} className={BTN_PRIMARY}>
           + Tambah menu
         </button>
       </div>
 
       {error && (
-        <p className="text-sm text-[#C1443B] bg-[#C1443B]/10 border border-[#C1443B]/30 rounded-md px-3 py-2 mb-6 flex items-center justify-between gap-3">
+        <p className={`${ERROR_BANNER} mb-6 flex items-center justify-between gap-3`}>
           <span>{error}</span>
           <button
             onClick={() => {
               setLoading(true)
               setReloadToken((n) => n + 1)
             }}
-            className="shrink-0 underline hover:no-underline"
+            className={`shrink-0 text-sm font-semibold ${LINK_BRAND}`}
           >
             Retry
           </button>
@@ -418,23 +403,23 @@ export default function MenusPage({ onLogout }) {
       )}
 
       {loading ? (
-        <p className="text-sm text-[#8A8377]">Loading…</p>
+        <p className="text-sm text-[#8B96A6]">Loading…</p>
       ) : menus.length === 0 ? (
-        <div className="border border-dashed border-[#D8D0BF] rounded-lg py-16 text-center">
-          <p className="text-[#5C6B62]">Belum ada menu. Tambahkan yang pertama.</p>
+        <div className="border border-dashed border-[#CBD1DB] rounded-xl py-16 text-center">
+          <p className="text-[#5B6B82]">Belum ada menu. Tambahkan yang pertama.</p>
         </div>
       ) : (
-        <div className="border border-[#D8D0BF] rounded-lg overflow-hidden overflow-x-auto bg-white">
+        <div className={`bg-white rounded-xl ${SHADOW_CARD} overflow-hidden overflow-x-auto`}>
           <table className="w-full text-sm min-w-[720px]">
             <thead>
-              <tr className="bg-[#F3EFE4] text-left text-xs tracking-[0.05em] uppercase text-[#5C6B62] font-[IBM_Plex_Mono,monospace]">
-                <th className="px-4 py-3 font-medium">Name</th>
-                <th className="px-4 py-3 font-medium">Sell price</th>
-                <th className="px-4 py-3 font-medium">Unit cost</th>
-                <th className="px-4 py-3 font-medium">Margin</th>
-                <th className="px-4 py-3 font-medium">Recipe</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium text-right">Actions</th>
+              <tr className="bg-[#F7F5F0] text-left text-xs uppercase tracking-wide text-[#8B96A6]">
+                <th className="px-4 py-3 font-bold">Name</th>
+                <th className="px-4 py-3 font-bold">Sell price</th>
+                <th className="px-4 py-3 font-bold">Unit cost</th>
+                <th className="px-4 py-3 font-bold">Margin</th>
+                <th className="px-4 py-3 font-bold">Recipe</th>
+                <th className="px-4 py-3 font-bold">Status</th>
+                <th className="px-4 py-3 font-bold text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -442,60 +427,51 @@ export default function MenusPage({ onLogout }) {
                 const margin = marginPct(menu)
                 const belowTarget = margin !== null && margin < Number(menu.target_margin)
                 return (
-                  <tr key={menu.id} className="border-t border-[#D8D0BF]">
-                    <td className="px-4 py-3 text-[#1F2A24] font-medium">{menu.name}</td>
-                    <td className="px-4 py-3 text-[#1F2A24]">Rp {formatRupiah(menu.sell_price)}</td>
-                    <td className="px-4 py-3 text-[#5C6B62]">Rp {formatRupiah(menu.unit_cost)}</td>
+                  <tr key={menu.id} className="border-t border-[#E4E2DC]">
+                    <td className="px-4 py-3 text-[#18233D] font-medium">{menu.name}</td>
+                    <td className="px-4 py-3 text-[#18233D]">Rp {formatRupiah(menu.sell_price)}</td>
+                    <td className="px-4 py-3 text-[#5B6B82]">Rp {formatRupiah(menu.unit_cost)}</td>
                     <td className="px-4 py-3">
                       {margin === null ? (
-                        <span className="text-[#8A8377]">—</span>
+                        <span className="text-[#8B96A6]">—</span>
                       ) : (
-                        <span className={belowTarget ? 'text-[#C1443B]' : 'text-[#5C8B6E]'}>
+                        <span className={belowTarget ? 'text-[#B8433B]' : 'text-[#2E7D53]'}>
                           {margin.toFixed(1)}%
                         </span>
                       )}
-                      <span className="text-[#8A8377]"> / target {Number(menu.target_margin)}%</span>
+                      <span className="text-[#8B96A6]"> / target {Number(menu.target_margin)}%</span>
                     </td>
-                    <td className="px-4 py-3 text-[#5C6B62]">
+                    <td className="px-4 py-3 text-[#5B6B82]">
                       {menu.recipe_lines.length === 0
                         ? 'Belum ada'
                         : `${menu.recipe_lines.length} ingredient`}
                     </td>
                     <td className="px-4 py-3">
                       {menu.is_active ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-[IBM_Plex_Mono,monospace] tracking-[0.05em] uppercase text-[#5C8B6E] bg-[#5C8B6E]/10 border border-[#5C8B6E]/30 rounded-full px-2 py-0.5">
+                        <span className="text-xs font-semibold text-[#2E7D53] bg-[#EAF5EE] rounded-full px-2.5 py-1">
                           Active
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-xs font-[IBM_Plex_Mono,monospace] tracking-[0.05em] uppercase text-[#8A8377] bg-[#8A8377]/10 border border-[#8A8377]/30 rounded-full px-2 py-0.5">
+                        <span className="text-xs font-semibold text-[#8B96A6] bg-[#F7F5F0] rounded-full px-2.5 py-1">
                           Inactive
                         </span>
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-3 text-xs">
-                        <button
-                          onClick={() => setRecipeTarget(menu)}
-                          className="text-[#5C8B6E] hover:underline"
-                        >
+                      <div className="flex items-center justify-end gap-3 text-xs font-semibold">
+                        <button onClick={() => setRecipeTarget(menu)} className={LINK_BRAND}>
                           Recipe
                         </button>
-                        <button
-                          onClick={() => setFormTarget(menu)}
-                          className="text-[#5C6B62] hover:underline"
-                        >
+                        <button onClick={() => setFormTarget(menu)} className={LINK_MUTED}>
                           Edit
                         </button>
-                        <button
-                          onClick={() => handleToggleActive(menu)}
-                          className="text-[#5C6B62] hover:underline"
-                        >
+                        <button onClick={() => handleToggleActive(menu)} className={LINK_MUTED}>
                           {menu.is_active ? 'Deactivate' : 'Activate'}
                         </button>
                         <button
                           onClick={() => handleDelete(menu)}
                           disabled={deletingId === menu.id}
-                          className="text-[#C1443B] hover:underline disabled:opacity-50"
+                          className={`${LINK_CRITICAL} disabled:opacity-50`}
                         >
                           {deletingId === menu.id ? '…' : 'Delete'}
                         </button>
