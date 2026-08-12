@@ -1,3 +1,6 @@
+import secrets
+import string
+
 from django.contrib.auth import get_user_model
 from django.utils.text import slugify
 from rest_framework import serializers
@@ -5,6 +8,16 @@ from rest_framework import serializers
 from .models import Business, User
 
 UserModel = get_user_model()
+
+_SLUG_ALPHABET = string.ascii_lowercase + string.digits
+_SLUG_SUFFIX_LEN = 6
+
+
+def _random_business_slug(base):
+    """base + random suffix so the join code can't be guessed from the
+    business name — it's shared like an invite code, not a public handle."""
+    suffix = "".join(secrets.choice(_SLUG_ALPHABET) for _ in range(_SLUG_SUFFIX_LEN))
+    return f"{base}-{suffix}"
 
 
 class BusinessSerializer(serializers.ModelSerializer):
@@ -16,9 +29,10 @@ class BusinessSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["id", "username", "full_name", "role", "business"]
+        fields = ["id", "username", "full_name", "role", "business", "business_username"]
 
     full_name = serializers.SerializerMethodField()
+    business_username = serializers.CharField(source="business.username", read_only=True)
 
     def get_full_name(self, obj):
         return obj.get_full_name()
@@ -30,7 +44,7 @@ class StaffSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["id", "username", "full_name", "role", "granted_features", "is_active"]
+        fields = ["id", "username", "full_name", "role", "granted_features", "is_active", "last_login"]
 
     def get_full_name(self, obj):
         return obj.get_full_name()
@@ -83,15 +97,22 @@ class RegisterSerializer(serializers.Serializer):
                 )
 
             raw_slug = data.get("business_username", "").strip() or business_name
-            slug = slugify(raw_slug)
-            if not slug:
+            # Truncate base so base + "-" + suffix still fits the 50-char SlugField.
+            base = slugify(raw_slug)[: 50 - 1 - _SLUG_SUFFIX_LEN]
+            if not base:
                 raise serializers.ValidationError(
                     {"business_username": "Username business tidak valid, coba nama lain."}
                 )
-            if Business.objects.filter(username=slug).exists():
+
+            for _ in range(5):
+                slug = _random_business_slug(base)
+                if not Business.objects.filter(username=slug).exists():
+                    break
+            else:
                 raise serializers.ValidationError(
-                    {"business_username": "Username business ini sudah dipakai. Coba yang lain."}
+                    {"business_username": "Gagal generate kode unik, coba submit ulang."}
                 )
+
             data["business_name"] = business_name
             data["business_username"] = slug
 
@@ -128,6 +149,10 @@ class RegisterSerializer(serializers.Serializer):
         user = User(username=username, role=role, business=business)
         if full_name:
             user.first_name = full_name
+        if role == "staff":
+            # Staff self-registers with just the business join code — require
+            # owner approval (via PeoplePage "Aktifkan") before they get access.
+            user.is_active = False
         user.set_password(password)
         user.save()
 

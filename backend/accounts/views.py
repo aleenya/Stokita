@@ -24,6 +24,7 @@ class RegisterView(APIView):
             {
                 "token": token.key,
                 "role": user.role,
+                "is_active": user.is_active,
                 "business": BusinessSerializer(user.business).data,
             },
             status=status.HTTP_201_CREATED,
