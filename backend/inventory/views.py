@@ -1,5 +1,6 @@
 from decimal import Decimal, InvalidOperation
 from django.db import transaction
+from django.db.models import ProtectedError
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -42,6 +43,15 @@ class IngredientViewSet(viewsets.ModelViewSet):
             )
             ingredient.current_stock = qty
             ingredient.save(update_fields=["current_stock"])
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            return Response(
+                {"error": "Bahan ini masih dipakai di resep menu. Gak bisa dihapus."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
     def perform_update(self, serializer):
         ingredient = serializer.instance

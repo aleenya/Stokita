@@ -40,12 +40,19 @@ def compute_menu_profit_states(business, date_from=None, date_to=None):
         agg = agg_by_menu.get(menu.id, {})
         revenue = agg.get("revenue") or 0
         cost = agg.get("cost") or 0
-        margin_pct = float((revenue - cost) / revenue * 100) if revenue else 0
+        if revenue:
+            margin_pct = float((revenue - cost) / revenue * 100)
+            state = classify_margin_state(margin_pct, float(menu.target_margin))
+        else:
+            # Belum pernah kejual — jangan dipaksa masuk skala high/stable/low,
+            # itu bikin menu tanpa data ke-klaim "sehat" secara keliru.
+            margin_pct = 0
+            state = "no_data"
         results.append({
             "menu_id": str(menu.id),
             "name": menu.name,
             "margin_pct": round(margin_pct, 1),
-            "state": classify_margin_state(margin_pct, float(menu.target_margin)),
+            "state": state,
         })
     return results
 
@@ -72,7 +79,9 @@ def record_sale(business, user, sale_date, items):
     sale = Sale.objects.create(business=business, sale_date=sale_date, recorded_by=user)
 
     for line in items:
-        menu = Menu.objects.select_for_update().get(id=line["menu_id"], business=business)
+        menu = Menu.objects.select_for_update().get(
+            id=line["menu_id"], business=business, is_active=True,
+        )
         qty = int(line["quantity"])
 
         # snapshot price and cost at sale time

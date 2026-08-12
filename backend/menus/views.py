@@ -1,3 +1,6 @@
+from django.db import transaction
+from django.db.models import ProtectedError
+from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -7,7 +10,7 @@ from .serializers import MenuSerializer, RecipeLineInputSerializer
 from rest_framework.permissions import IsAuthenticated
 from accounts.permissions import IsOwner
 from accounts.permissions import feature_required
- 
+
 class MenuViewSet(viewsets.ModelViewSet):
     serializer_class = MenuSerializer
 
@@ -15,25 +18,43 @@ class MenuViewSet(viewsets.ModelViewSet):
         if self.action in ["create", "update", "partial_update", "destroy", "recipe"]:
             return [IsAuthenticated(), feature_required("menus_manage")()]
         return [IsAuthenticated()]
- 
+
     def get_queryset(self):
         return Menu.objects.filter(
             business=self.request.user.business
         ).prefetch_related("recipe_lines__ingredient")
- 
+
     def perform_create(self, serializer):
         serializer.save(business=self.request.user.business)
- 
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            return super().destroy(request, *args, **kwargs)
+        except ProtectedError:
+            return Response(
+                {"error": "Menu ini punya riwayat penjualan. Nonaktifkan aja biar histori tetap aman."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
     @action(detail=True, methods=["put"])
+    @transaction.atomic
     def recipe(self, request, pk=None):
         """Replace the whole recipe line set for this menu."""
-        menu = self.get_object()
+        menu = get_object_or_404(
+            Menu.objects.select_for_update(), pk=pk, business=request.user.business
+        )
 
         line_serializer = RecipeLineInputSerializer(data=request.data.get("lines", []), many=True)
         line_serializer.is_valid(raise_exception=True)
         lines = line_serializer.validated_data
 
         ingredient_ids = [line["ingredient_id"] for line in lines]
+        if len(set(ingredient_ids)) != len(ingredient_ids):
+            return Response(
+                {"error": "Satu ingredient cuma boleh muncul sekali di resep."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         owned_ids = set(
             Ingredient.objects.filter(
                 id__in=ingredient_ids, business=request.user.business
@@ -47,10 +68,8 @@ class MenuViewSet(viewsets.ModelViewSet):
             )
 
         menu.recipe_lines.all().delete()
-        for line in lines:
-            MenuRecipe.objects.create(
-                menu=menu,
-                ingredient_id=line["ingredient_id"],
-                qty_per_serving=line["qty_per_serving"],
-            )
+        MenuRecipe.objects.bulk_create([
+            MenuRecipe(menu=menu, ingredient_id=line["ingredient_id"], qty_per_serving=line["qty_per_serving"])
+            for line in lines
+        ])
         return Response(MenuSerializer(menu).data, status=status.HTTP_200_OK)
