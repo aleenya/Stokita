@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import LoginPage from './pages/LoginPage'
+import RegisterPage from './pages/RegisterPage'
 import api from './api/client'
 import IngredientsPage from './pages/IngredientsPage'
 import MenusPage from './pages/MenusPage'
@@ -12,6 +13,7 @@ function App() {
   const [token, setToken] = useState(() => localStorage.getItem('stokita_token'))
   const [me, setMe] = useState(null)
   const [page, setPage] = useState('ingredients')
+  const [authView, setAuthView] = useState('login') // 'login' | 'register'
 
   useEffect(() => {
     if (!token) return
@@ -19,6 +21,10 @@ function App() {
   }, [token])
 
   function handleLoginSuccess(newToken) {
+    setToken(newToken)
+  }
+
+  function handleRegisterSuccess(newToken) {
     setToken(newToken)
   }
 
@@ -30,7 +36,17 @@ function App() {
   }
 
   if (!token) {
-    return <LoginPage onLoginSuccess={handleLoginSuccess} />
+    return authView === 'login' ? (
+      <LoginPage
+        onLoginSuccess={handleLoginSuccess}
+        onSwitchToRegister={() => setAuthView('register')}
+      />
+    ) : (
+      <RegisterPage
+        onRegisterSuccess={handleRegisterSuccess}
+        onSwitchToLogin={() => setAuthView('login')}
+      />
+    )
   }
 
   const isOwner = me?.role === 'owner'

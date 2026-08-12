@@ -1,14 +1,13 @@
 import { useState } from 'react'
 import api from '../api/client'
 
-// Contoh 3 baris Daily Brief buat preview di panel kiri — statis, cuma ilustrasi visual.
 const PREVIEW_ITEMS = [
   { tag: 'HIGH RISK', label: 'Chicken breast — expires in 2 days', accent: 'border-[#E2A33D]' },
   { tag: 'PROFIT LEAK', label: 'Ayam Geprek — margin 18%', accent: 'border-[#C1443B]' },
   { tag: 'PURCHASE', label: 'Eggs — buy 5 trays today', accent: 'border-[#5C8B6E]' },
 ]
 
-export default function LoginPage({ onLoginSuccess }) {
+export default function LoginPage({ onLoginSuccess, onSwitchToRegister }) {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -161,8 +160,15 @@ export default function LoginPage({ onLoginSuccess }) {
             </button>
           </form>
 
-          <p className="mt-8 text-xs text-[#8A8377] leading-relaxed">
-            Don't have an account? Ask your outlet owner to add you from the Stokita dashboard.
+          <p className="mt-8 text-sm text-[#5C6B62] text-center">
+            Don't have an account?{' '}
+            <button
+              type="button"
+              onClick={onSwitchToRegister}
+              className="text-[#1F2A24] font-medium hover:underline"
+            >
+              Create one
+            </button>
           </p>
         </div>
       </div>

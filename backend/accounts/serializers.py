@@ -1,11 +1,16 @@
+from django.contrib.auth import get_user_model
+from django.utils.text import slugify
 from rest_framework import serializers
+
 from .models import Business, User
+
+UserModel = get_user_model()
 
 
 class BusinessSerializer(serializers.ModelSerializer):
     class Meta:
         model = Business
-        fields = ["id", "name", "created_at"]
+        fields = ["id", "name", "username", "created_at"]
 
 
 class UserSerializer(serializers.ModelSerializer):
