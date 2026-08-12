@@ -43,7 +43,9 @@ class StaffViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated, IsOwner]
 
     def list(self, request):
-        staff = User.objects.filter(business=request.user.business, role=User.STAFF)
+        staff = User.objects.filter(
+            business=request.user.business, role=User.STAFF
+        ).prefetch_related("feature_grants")
         return Response(StaffSerializer(staff, many=True).data)
 
     @action(detail=True, methods=["put"])

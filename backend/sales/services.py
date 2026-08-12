@@ -2,6 +2,7 @@
 cost so profit (F3) can be computed later. Runs in a single transaction."""
 from decimal import Decimal
 from django.db import transaction
+from django.db.models import F, DecimalField, ExpressionWrapper, Sum
 from inventory.models import StockMovement
 from menus.models import Menu
 from .models import Sale, SaleItem
@@ -15,6 +16,38 @@ def classify_margin_state(margin_pct, target):
     if margin_pct >= target * 0.6:
         return "stable"
     return "low"
+
+
+def compute_menu_profit_states(business, date_from=None, date_to=None):
+    """F3: per-menu revenue/cost/margin, aggregated in ONE grouped query
+    instead of one aggregate query per menu — used by both
+    /analytics/profit (sales) and the daily brief context builder
+    (briefs), which previously duplicated this as a per-menu N+1 loop."""
+    items_qs = SaleItem.objects.filter(sale__business=business)
+    if date_from:
+        items_qs = items_qs.filter(sale__sale_date__gte=date_from)
+    if date_to:
+        items_qs = items_qs.filter(sale__sale_date__lte=date_to)
+
+    agg_rows = items_qs.values("menu_id").annotate(
+        revenue=Sum(ExpressionWrapper(F("unit_price") * F("quantity"), output_field=DecimalField())),
+        cost=Sum(ExpressionWrapper(F("unit_cost") * F("quantity"), output_field=DecimalField())),
+    )
+    agg_by_menu = {row["menu_id"]: row for row in agg_rows}
+
+    results = []
+    for menu in Menu.objects.filter(business=business):
+        agg = agg_by_menu.get(menu.id, {})
+        revenue = agg.get("revenue") or 0
+        cost = agg.get("cost") or 0
+        margin_pct = float((revenue - cost) / revenue * 100) if revenue else 0
+        results.append({
+            "menu_id": str(menu.id),
+            "name": menu.name,
+            "margin_pct": round(margin_pct, 1),
+            "state": classify_margin_state(margin_pct, float(menu.target_margin)),
+        })
+    return results
 
 
 class InsufficientStockError(Exception):

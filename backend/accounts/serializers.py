@@ -36,7 +36,10 @@ class StaffSerializer(serializers.ModelSerializer):
         return obj.get_full_name()
 
     def get_granted_features(self, obj):
-        return list(obj.feature_grants.values_list("feature", flat=True))
+        # .all() (not .values_list()) so this reuses the
+        # prefetch_related('feature_grants') cache from StaffViewSet.list()
+        # instead of firing a fresh query per staff row.
+        return [g.feature for g in obj.feature_grants.all()]
 
 
 class RegisterSerializer(serializers.Serializer):

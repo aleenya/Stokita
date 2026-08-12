@@ -3,9 +3,8 @@ from datetime import date, timedelta
 
 from django.db.models import F, DecimalField, ExpressionWrapper, Sum
 from inventory.models import Ingredient, StockMovement
-from menus.models import Menu
 from sales.models import SaleItem
-from sales.services import classify_margin_state
+from sales.services import compute_menu_profit_states
 from .models import DailyBrief, BriefAction, ActionImpactCheck
 from .ai import generate_recommendations, analyze_impact
 from django.utils import timezone
@@ -18,25 +17,8 @@ def _build_context(business):
         "low_stock_threshold": float(i.low_stock_threshold) if i.low_stock_threshold else None,
     } for i in Ingredient.objects.filter(business=business)]
  
-    # profit states (reuse F3 logic)
-    profit = []
-    for menu in Menu.objects.filter(business=business):
-        items = SaleItem.objects.filter(menu=menu, sale__business=business)
-        agg = items.aggregate(
-            revenue=Sum(ExpressionWrapper(F("unit_price") * F("quantity"),
-                        output_field=DecimalField())),
-            cost=Sum(ExpressionWrapper(F("unit_cost") * F("quantity"),
-                     output_field=DecimalField())),
-        )
-        revenue = agg["revenue"] or 0
-        cost = agg["cost"] or 0
-        margin_pct = float((revenue - cost) / revenue * 100) if revenue else 0
-        profit.append({
-            "menu_id": str(menu.id),
-            "name": menu.name,
-            "margin_pct": round(margin_pct, 1),
-            "state": classify_margin_state(margin_pct, float(menu.target_margin)),
-        })
+    # profit states (reuse F3 logic — shared with /analytics/profit)
+    profit = compute_menu_profit_states(business)
  
     # expiring soon (within 3 days)
     soon = date.today() + timedelta(days=3)
@@ -108,7 +90,9 @@ def _capture_snapshot(action):
         })
 
     if action.related_ingredient_id:
-        ing = Ingredient.objects.filter(id=action.related_ingredient_id).first()
+        ing = Ingredient.objects.filter(
+            id=action.related_ingredient_id, business=action.brief.business
+        ).first()
         if ing:
             snapshot["ingredient_current_stock"] = float(ing.current_stock)
 
