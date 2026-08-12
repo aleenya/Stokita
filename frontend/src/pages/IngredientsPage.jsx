@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import api from '../api/client'
+import { extractError } from '../utils/error'
 
 /* =========================================================================
    DESIGN TOKENS — sama persis dengan Dashboard.jsx / Sidebar.jsx / MenusPage.jsx.
@@ -246,7 +247,7 @@ function AddIngredientModal({ onClose, onSaved }) {
       })
       onSaved()
     } catch (err) {
-      setError('Gagal bikin ingredient. Cek isian form.')
+      setError(extractError(err) || 'Gagal bikin ingredient. Cek isian form.')
     } finally {
       setSaving(false)
     }
@@ -361,6 +362,7 @@ function AddIngredientModal({ onClose, onSaved }) {
    ========================================================================= */
 function RestockModal({ ingredient, onClose, onSaved }) {
   const [qty, setQty] = useState('')
+  const [totalCost, setTotalCost] = useState('')
   const [expiryDate, setExpiryDate] = useState('')
   const [aiNote, setAiNote] = useState('')
   const [aiLoading, setAiLoading] = useState(false)
@@ -389,11 +391,12 @@ function RestockModal({ ingredient, onClose, onSaved }) {
     try {
       await api.post(`/ingredients/${ingredient.id}/restock/`, {
         change_qty: qty,
+        total_cost: totalCost || 0,
         expiry_date: expiryDate || null,
       })
       onSaved()
     } catch (err) {
-      setError('Gagal restock.')
+      setError(extractError(err) || 'Gagal restock.')
     } finally {
       setSaving(false)
     }
@@ -402,17 +405,34 @@ function RestockModal({ ingredient, onClose, onSaved }) {
   return (
     <Modal title={`Restock — ${ingredient.name}`} subtitle={`Current stock: ${ingredient.current_stock} ${ingredient.unit}`} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-        <div>
-          <label className={LABEL}>Qty to add ({ingredient.unit})</label>
-          <input
-            type="number" step="0.001"
-            value={qty}
-            onChange={(e) => setQty(e.target.value)}
-            className={INPUT}
-            placeholder="0"
-            autoFocus
-          />
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={LABEL}>Qty to add ({ingredient.unit})</label>
+            <input
+              type="number" step="0.001"
+              value={qty}
+              onChange={(e) => setQty(e.target.value)}
+              className={INPUT}
+              placeholder="0"
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className={LABEL}>Total cost (optional)</label>
+            <input
+              type="number" step="0.01"
+              value={totalCost}
+              onChange={(e) => setTotalCost(e.target.value)}
+              className={INPUT}
+              placeholder="e.g. 150000"
+            />
+          </div>
         </div>
+        {qty > 0 && totalCost > 0 && (
+          <p className="text-xs text-[#8B96A6] -mt-2">
+            Cost/unit bakal ke-update jadi rata-rata tertimbang sama stok yang ada.
+          </p>
+        )}
         <div>
           <label className={LABEL}>Expiry date</label>
           <div className="flex gap-2 items-center">
@@ -437,6 +457,71 @@ function RestockModal({ ingredient, onClose, onSaved }) {
           </button>
           <button type="submit" disabled={saving || !qty} className={`flex-1 ${BTN_PRIMARY}`}>
             {saving ? 'Saving…' : 'Confirm Restock'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+/* =========================================================================
+   WASTE MODAL — write off spoiled/expired stock (F1: ADJUSTMENT movement)
+   ========================================================================= */
+function WasteModal({ ingredient, onClose, onSaved }) {
+  const [qty, setQty] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setError('')
+    if (!qty || Number(qty) <= 0) return
+    if (Number(qty) > Number(ingredient.current_stock)) {
+      setError('Qty gak boleh lebih dari stok yang ada.')
+      return
+    }
+    setSaving(true)
+    try {
+      await api.post(`/ingredients/${ingredient.id}/waste/`, { qty })
+      onSaved()
+    } catch (err) {
+      setError(extractError(err) || 'Gagal catat waste.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal
+      title={`Mark as wasted — ${ingredient.name}`}
+      subtitle={`Current stock: ${ingredient.current_stock} ${ingredient.unit}`}
+      onClose={onClose}
+    >
+      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+        <div>
+          <label className={LABEL}>Qty wasted ({ingredient.unit})</label>
+          <input
+            type="number" step="0.001"
+            value={qty}
+            onChange={(e) => setQty(e.target.value)}
+            className={INPUT}
+            placeholder="0"
+            autoFocus
+          />
+          <p className="text-xs text-[#8B96A6] mt-1.5">
+            Bahan yang udah kedaluwarsa/rusak dan gak bisa dipakai lagi — dicatat sebagai
+            adjustment, bukan restock.
+          </p>
+        </div>
+
+        {error && <p className={ERROR_BANNER}>{error}</p>}
+
+        <div className="flex gap-3 pt-1">
+          <button type="button" onClick={onClose} className={`flex-1 ${BTN_SECONDARY}`}>
+            Cancel
+          </button>
+          <button type="submit" disabled={saving || !qty} className={`flex-1 ${BTN_PRIMARY}`}>
+            {saving ? 'Saving…' : 'Confirm'}
           </button>
         </div>
       </form>
@@ -470,7 +555,7 @@ function EditIngredientModal({ ingredient, onClose, onSaved }) {
       })
       onSaved()
     } catch (err) {
-      setError('Gagal update ingredient.')
+      setError(extractError(err) || 'Gagal update ingredient.')
     } finally {
       setSaving(false)
     }
@@ -542,7 +627,7 @@ function EditIngredientModal({ ingredient, onClose, onSaved }) {
 /* =========================================================================
    ROW ACTION MENU
    ========================================================================= */
-function RowActionMenu({ onRestock, onEdit }) {
+function RowActionMenu({ onRestock, onEdit, onWaste }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
 
@@ -582,6 +667,13 @@ function RowActionMenu({ onRestock, onEdit }) {
           >
             <IconPencil className="w-3.5 h-3.5 text-[#8B96A6]" /> Edit
           </button>
+          <button
+            type="button"
+            onClick={() => { setOpen(false); onWaste() }}
+            className="w-full flex items-center gap-2 text-left px-3 py-2 text-sm text-[#B8433B] hover:bg-[#FBEBEA] transition-colors"
+          >
+            <IconAlertTriangle className="w-3.5 h-3.5" /> Mark as wasted
+          </button>
         </div>
       )}
     </div>
@@ -602,6 +694,7 @@ export default function IngredientsPage() {
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [restockTarget, setRestockTarget] = useState(null)
   const [editTarget, setEditTarget] = useState(null)
+  const [wasteTarget, setWasteTarget] = useState(null)
 
   // receipt upload / dropzone state
   const [receiptFile, setReceiptFile] = useState(null)
@@ -620,7 +713,7 @@ export default function IngredientsPage() {
       setIngredients(res.data)
       setError('')
     } catch (err) {
-      setError('Gagal ambil data ingredients. Cek backend jalan & login masih valid.')
+      setError(extractError(err) || 'Gagal ambil data ingredients.')
     } finally {
       setLoading(false)
     }
@@ -663,12 +756,13 @@ export default function IngredientsPage() {
           name: it.name,
           quantity: it.quantity,
           unit: it.unit,
+          total_price: it.total_price ?? '',
           expiry_date: it.suggested_expiry_date || '',
           note: it.note || '',
         }))
       )
     } catch (err) {
-      setReceiptError('Gagal baca struk. Coba foto yang lebih jelas atau isi manual.')
+      setReceiptError(extractError(err) || 'Gagal baca struk. Coba foto yang lebih jelas atau isi manual.')
     } finally {
       setReceiptLoading(false)
     }
@@ -686,19 +780,27 @@ export default function IngredientsPage() {
     if (!receiptItems || receiptItems.length === 0) return
     setBulkSubmitting(true)
     try {
-      await api.post('/ingredients/bulk-restock/', {
+      const res = await api.post('/ingredients/bulk-restock/', {
         items: receiptItems.map((it) => ({
           name: it.name,
           unit: it.unit,
           change_qty: it.quantity,
+          total_price: it.total_price || null,
           expiry_date: it.expiry_date || null,
         })),
       })
+      const skipped = res.data.skipped || []
       setReceiptItems(null)
       setReceiptFile(null)
       fetchIngredients()
+      if (skipped.length > 0) {
+        setReceiptError(
+          `${skipped.length} baris di-skip: ` +
+            skipped.map((s) => `${s.name} (${s.reason})`).join(', ')
+        )
+      }
     } catch (err) {
-      setReceiptError('Gagal submit bulk restock. Cek tiap baris (qty harus > 0).')
+      setReceiptError(extractError(err) || 'Gagal submit bulk restock. Cek tiap baris (qty harus > 0).')
     } finally {
       setBulkSubmitting(false)
     }
@@ -813,6 +915,7 @@ export default function IngredientsPage() {
                           <RowActionMenu
                             onRestock={() => setRestockTarget(ing)}
                             onEdit={() => setEditTarget(ing)}
+                            onWaste={() => setWasteTarget(ing)}
                           />
                         </td>
                       </tr>
@@ -895,6 +998,7 @@ export default function IngredientsPage() {
                       <th className="text-left px-3 py-2.5 font-bold">Name</th>
                       <th className="text-right px-3 py-2.5 font-bold">Qty</th>
                       <th className="text-left px-3 py-2.5 font-bold">Unit</th>
+                      <th className="text-right px-3 py-2.5 font-bold">Total price</th>
                       <th className="text-left px-3 py-2.5 font-bold">Expiry date</th>
                       <th className="text-left px-3 py-2.5"></th>
                     </tr>
@@ -922,6 +1026,15 @@ export default function IngredientsPage() {
                             value={item.unit}
                             onChange={(e) => updateReceiptItem(i, { unit: e.target.value })}
                             className={INPUT}
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="number" step="0.01"
+                            value={item.total_price}
+                            onChange={(e) => updateReceiptItem(i, { total_price: e.target.value })}
+                            className={`${INPUT} text-right`}
+                            placeholder="opsional"
                           />
                         </td>
                         <td className="px-3 py-2">
@@ -972,6 +1085,13 @@ export default function IngredientsPage() {
           ingredient={editTarget}
           onClose={() => setEditTarget(null)}
           onSaved={() => { setEditTarget(null); fetchIngredients() }}
+        />
+      )}
+      {wasteTarget && (
+        <WasteModal
+          ingredient={wasteTarget}
+          onClose={() => setWasteTarget(null)}
+          onSaved={() => { setWasteTarget(null); fetchIngredients() }}
         />
       )}
     </div>

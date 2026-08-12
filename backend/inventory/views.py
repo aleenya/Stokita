@@ -1,14 +1,20 @@
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
+from django.db import transaction
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
 from .models import Ingredient, StockMovement
 from .serializers import IngredientSerializer
+from .services import apply_restock, apply_waste
 from datetime import date, timedelta
 from .ai import estimate_shelf_life, parse_receipt
 from rest_framework.permissions import IsAuthenticated
 from accounts.permissions import IsOwner
 from accounts.permissions import feature_required
+
+RECEIPT_MAX_SIZE = 5 * 1024 * 1024
+RECEIPT_ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp"}
  
  
 class IngredientViewSet(viewsets.ModelViewSet):
@@ -38,23 +44,43 @@ class IngredientViewSet(viewsets.ModelViewSet):
             ingredient.save(update_fields=["current_stock"])
 
     def perform_update(self, serializer):
+        ingredient = serializer.instance
+        new_unit = serializer.validated_data.get("unit")
+        if new_unit and new_unit != ingredient.unit and ingredient.menurecipe_set.exists():
+            raise ValidationError(
+                {"unit": "Gak bisa ganti unit — bahan ini udah dipakai di resep menu."}
+            )
         serializer.save(current_stock=serializer.instance.current_stock)
 
     @action(detail=True, methods=["post"])
     def restock(self, request, pk=None):
         ingredient = self.get_object()
-        qty = Decimal(str(request.data.get("change_qty", 0)))
-        expiry = request.data.get("expiry_date")
+        try:
+            qty = Decimal(str(request.data.get("change_qty", 0)))
+            total_cost = Decimal(str(request.data.get("total_cost", 0)))
+        except InvalidOperation:
+            return Response({"error": "change_qty/total_cost harus berupa angka."},
+                            status=status.HTTP_400_BAD_REQUEST)
         if qty <= 0:
             return Response({"error": "change_qty must be positive"},
                             status=status.HTTP_400_BAD_REQUEST)
-        StockMovement.objects.create(
-            ingredient=ingredient, change_qty=qty,
-            movement_type=StockMovement.RESTOCK,
-            expiry_date=expiry or None, created_by=request.user,
+        expiry = request.data.get("expiry_date")
+        ingredient = apply_restock(
+            ingredient, qty, total_cost=total_cost, expiry_date=expiry or None, user=request.user,
         )
-        ingredient.current_stock += qty
-        ingredient.save(update_fields=["current_stock"])
+        return Response({"current_stock": ingredient.current_stock, "cost_per_unit": ingredient.cost_per_unit})
+
+    @action(detail=True, methods=["post"])
+    def waste(self, request, pk=None):
+        ingredient = self.get_object()
+        try:
+            qty = Decimal(str(request.data.get("qty", 0)))
+        except InvalidOperation:
+            return Response({"error": "qty harus berupa angka."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            ingredient = apply_waste(ingredient, qty, user=request.user)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         return Response({"current_stock": ingredient.current_stock})
 
     @action(detail=False, methods=["post"], url_path="estimate-expiry")
@@ -66,11 +92,11 @@ class IngredientViewSet(viewsets.ModelViewSet):
         gak butuh ingredient sudah ada di DB atau belum.
         Form belum di-submit di titik ini.
         """
-        name = request.data.get("name", "").strip()
+        name = (request.data.get("name") or "").strip()
         if not name:
             return Response({"error": "nama wajib diisi"}, status=status.HTTP_400_BAD_REQUEST)
 
-        notes = request.data.get("notes", "")
+        notes = request.data.get("notes") or ""
         result = estimate_shelf_life(ingredient_name=name, notes=notes)
         if result is None:
             return Response(
@@ -100,6 +126,11 @@ class IngredientViewSet(viewsets.ModelViewSet):
         image_file = request.FILES.get("image")
         if not image_file:
             return Response({"error": "image file wajib diisi"}, status=status.HTTP_400_BAD_REQUEST)
+        if image_file.size > RECEIPT_MAX_SIZE:
+            return Response({"error": "Ukuran gambar maksimal 5 MB."}, status=status.HTTP_400_BAD_REQUEST)
+        if image_file.content_type not in RECEIPT_ALLOWED_TYPES:
+            return Response({"error": "File harus berupa gambar JPG, PNG, atau WEBP."},
+                            status=status.HTTP_400_BAD_REQUEST)
 
         raw_items = parse_receipt(
             image_bytes=image_file.read(),
@@ -128,6 +159,7 @@ class IngredientViewSet(viewsets.ModelViewSet):
                 "name": name,
                 "quantity": item.get("quantity", 1),
                 "unit": item.get("unit", "pcs"),
+                "total_price": item.get("total_price"),
                 "suggested_expiry_date": suggested_expiry,
                 "confidence": confidence,
                 "note": note,
@@ -136,11 +168,14 @@ class IngredientViewSet(viewsets.ModelViewSet):
         return Response({"items": results})
 
     @action(detail=False, methods=["post"], url_path="bulk-restock")
+    @transaction.atomic
     def bulk_restock(self, request):
         """
         Submit banyak item sekaligus (hasil review dari parse-receipt).
-        Body: {"items": [{"name", "unit", "change_qty", "expiry_date"}]}
-        Ingredient yang namanya belum ada di business ini otomatis dibikinin.
+        Body: {"items": [{"name", "unit", "change_qty", "total_price", "expiry_date"}]}
+        Ingredient yang namanya belum ada di business ini (case-insensitive)
+        otomatis dibikinin. Dibungkus satu transaksi biar gak ada state
+        nyangkut separo kalau ada error di tengah batch.
         """
         items = request.data.get("items", [])
         if not items:
@@ -148,28 +183,35 @@ class IngredientViewSet(viewsets.ModelViewSet):
 
         business = request.user.business
         restocked = []
+        skipped = []
 
         for item in items:
             name = (item.get("name") or "").strip()
             try:
                 change_qty = Decimal(str(item.get("change_qty", 0)))
-            except Exception:
+                total_cost = Decimal(str(item.get("total_price", 0) or 0))
+            except InvalidOperation:
+                skipped.append({"name": name or "(tanpa nama)", "reason": "qty/harga bukan angka"})
                 continue
-            if not name or change_qty <= 0:
-                continue  # skip baris invalid, jangan gagalin semua batch
+            if not name:
+                skipped.append({"name": "(tanpa nama)", "reason": "nama kosong"})
+                continue
+            if change_qty <= 0:
+                skipped.append({"name": name, "reason": "qty harus lebih dari 0"})
+                continue
 
-            ingredient, _ = Ingredient.objects.get_or_create(
-                business=business, name=name,
-                defaults={"unit": item.get("unit", "pcs")},
+            ingredient = Ingredient.objects.filter(business=business, name__iexact=name).first()
+            if not ingredient:
+                ingredient = Ingredient.objects.create(
+                    business=business, name=name, unit=item.get("unit", "pcs"),
+                )
+            ingredient = apply_restock(
+                ingredient, change_qty, total_cost=total_cost,
+                expiry_date=item.get("expiry_date") or None, user=request.user,
             )
-            StockMovement.objects.create(
-                ingredient=ingredient, change_qty=change_qty,
-                movement_type=StockMovement.RESTOCK,
-                expiry_date=item.get("expiry_date") or None,
-                created_by=request.user,
-            )
-            ingredient.current_stock += change_qty
-            ingredient.save(update_fields=["current_stock"])
             restocked.append(str(ingredient.id))
 
-        return Response({"restocked_ingredient_ids": restocked}, status=status.HTTP_201_CREATED)
+        return Response(
+            {"restocked_ingredient_ids": restocked, "skipped": skipped},
+            status=status.HTTP_201_CREATED,
+        )
