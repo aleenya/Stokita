@@ -26,6 +26,7 @@ urlpatterns = [
     path("api/v1/", include("menus.urls")),
     path("api/v1/", include("sales.urls")),
     path("api/v1/", include("briefs.urls")),
+    path("api/v1/chat/", include("chat.urls")),
     path("api/v1/auth/login/", obtain_auth_token),
     path("api/v1/auth/register/", RegisterView.as_view()),
 ]

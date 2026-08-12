@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     "menus",
     "sales",
     "briefs",
+    "chat",
     "rest_framework.authtoken",
 ]
 
