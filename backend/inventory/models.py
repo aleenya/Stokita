@@ -1,4 +1,5 @@
 import uuid
+from django.core.validators import MinValueValidator
 from django.db import models
 from accounts.models import Business, User
 
@@ -8,9 +9,15 @@ class Ingredient(models.Model):
     business = models.ForeignKey(Business, on_delete=models.CASCADE, related_name="ingredients")
     name = models.CharField(max_length=200)
     unit = models.CharField(max_length=20, default="kg")
-    current_stock = models.DecimalField(max_digits=12, decimal_places=3, default=0)
-    cost_per_unit = models.DecimalField(max_digits=12, decimal_places=2, default=0)
-    low_stock_threshold = models.DecimalField(max_digits=12, decimal_places=3, null=True, blank=True)
+    current_stock = models.DecimalField(
+        max_digits=12, decimal_places=3, default=0, validators=[MinValueValidator(0)]
+    )
+    cost_per_unit = models.DecimalField(
+        max_digits=12, decimal_places=2, default=0, validators=[MinValueValidator(0)]
+    )
+    low_stock_threshold = models.DecimalField(
+        max_digits=12, decimal_places=3, null=True, blank=True, validators=[MinValueValidator(0)]
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

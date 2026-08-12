@@ -1,10 +1,16 @@
+from django.contrib.auth import authenticate
+from django.middleware.csrf import get_token
 from rest_framework import status, viewsets
-from rest_framework.authtoken.models import Token
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
 
+from django.conf import settings
+from .cookies import clear_auth_cookies, set_auth_cookies
 from .models import StaffFeatureGrant, User
 from .permissions import IsOwner
 from .serializers import BusinessSerializer, RegisterSerializer, StaffSerializer, UserSerializer
@@ -12,22 +18,112 @@ from .serializers import BusinessSerializer, RegisterSerializer, StaffSerializer
 
 class RegisterView(APIView):
     permission_classes = [AllowAny]
+    authentication_classes = []  # public endpoint — don't try to validate a cookie that may not exist
 
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
 
-        token, _ = Token.objects.get_or_create(user=user)
+        body = {
+            "role": user.role,
+            "is_active": user.is_active,
+            "business": BusinessSerializer(user.business).data,
+        }
+        response = Response(body, status=status.HTTP_201_CREATED)
 
-        return Response(
-            {
-                "token": token.key,
-                "role": user.role,
-                "business": BusinessSerializer(user.business).data,
-            },
-            status=status.HTTP_201_CREATED,
-        )
+        # Staff self-registration starts inactive (owner approval required
+        # — see RegisterSerializer.create) — no session for them to log
+        # into yet, so no cookies to set.
+        if not user.is_active:
+            return response
+
+        refresh = RefreshToken.for_user(user)
+        set_auth_cookies(response, str(refresh.access_token), str(refresh))
+        return response
+
+
+class CsrfCookieView(APIView):
+    """SPA calls this once on load. Django only sets the csrftoken cookie
+    as a side effect of get_token() being called somewhere in the request
+    — there's no template tag to trigger it on an API-only backend, so
+    this exists purely to make that happen explicitly."""
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request):
+        get_token(request)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class LoginView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        username = request.data.get("username")
+        password = request.data.get("password")
+        user = authenticate(request, username=username, password=password)
+        if user is None:
+            # Deliberately generic — Django's ModelBackend already refuses
+            # inactive users here too, so this covers both "wrong password"
+            # and "not approved yet / deactivated" without leaking which.
+            return Response({"error": "Username atau password salah."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        body = {"role": user.role, "business": BusinessSerializer(user.business).data}
+        response = Response(body, status=status.HTTP_200_OK)
+
+        refresh = RefreshToken.for_user(user)
+        set_auth_cookies(response, str(refresh.access_token), str(refresh))
+        return response
+
+
+class LogoutView(APIView):
+    """AllowAny on purpose: the access token may already be expired by the
+    time someone logs out, but the refresh cookie (what actually needs
+    revoking) can still be valid — this shouldn't require a fresh access
+    token to work."""
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        raw_refresh = request.COOKIES.get(settings.REFRESH_COOKIE_NAME)
+        if raw_refresh:
+            try:
+                RefreshToken(raw_refresh).blacklist()
+            except TokenError:
+                pass  # already invalid/expired/blacklisted — fine, still clear cookies
+
+        response = Response(status=status.HTTP_204_NO_CONTENT)
+        clear_auth_cookies(response)
+        return response
+
+
+class RefreshView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        raw_refresh = request.COOKIES.get(settings.REFRESH_COOKIE_NAME)
+        if not raw_refresh:
+            return Response({"error": "No refresh token."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        serializer = TokenRefreshSerializer(data={"refresh": raw_refresh})
+        try:
+            serializer.is_valid(raise_exception=True)
+        except Exception:
+            response = Response({"error": "Session expired, please sign in again."}, status=status.HTTP_401_UNAUTHORIZED)
+            clear_auth_cookies(response)
+            return response
+
+        # With ROTATE_REFRESH_TOKENS on, validated_data also contains a new
+        # "refresh" (and the old one gets blacklisted automatically).
+        access = serializer.validated_data["access"]
+        new_refresh = serializer.validated_data.get("refresh")
+
+        response = Response(status=status.HTTP_204_NO_CONTENT)
+        set_auth_cookies(response, access, new_refresh)
+        return response
 
 
 class MeView(APIView):
@@ -43,7 +139,9 @@ class StaffViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated, IsOwner]
 
     def list(self, request):
-        staff = User.objects.filter(business=request.user.business, role=User.STAFF)
+        staff = User.objects.filter(
+            business=request.user.business, role=User.STAFF
+        ).prefetch_related("feature_grants")
         return Response(StaffSerializer(staff, many=True).data)
 
     @action(detail=True, methods=["put"])

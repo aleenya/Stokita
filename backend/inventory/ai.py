@@ -2,9 +2,28 @@
 import json
 import logging
 from django.conf import settings
+from typing import Optional, List, Literal
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
+# Definisi Skema untuk Gemini
+
+class ShelfLifeResponse(BaseModel):
+    reasoning: str = Field(description="Berpikir langkah demi langkah mengenai karakteristik bahan dan cara penyimpanan standar sebelum menentukan estimasi hari.")
+    estimated_days: int = Field(description="SATU angka pasti (integer). Gunakan ANGKA BATAS BAWAH dari rentang umur simpan agar konservatif/aman.")
+    confidence: Literal["high", "medium", "low"]
+    note: str = Field(description="Alasan singkat dalam Bahasa Indonesia, boleh mencantumkan rentang aslinya di sini.")
+
+class ReceiptItem(BaseModel):
+    name: str = Field(description="Nama bahan makanan/minuman (singkat & umum).")
+    quantity: float = Field(description="Jumlah yang dibeli. Gunakan 1 sebagai default jika tidak jelas.")
+    unit: str = Field(description="Satuan berat/volume (contoh: kg, g, pcs, liter, ml).")
+    total_price: Optional[float] = Field(description="Harga TOTAL baris itu dalam Rupiah. Isi null jika tidak terlihat jelas. JANGAN menebak.")
+
+class ReceiptResponse(BaseModel):
+    reasoning: str = Field(description="Analisis langkah demi langkah untuk membaca struk, mengenali bahan makanan, dan membuang item non-bahan makanan (seperti pajak/kantong plastik).")
+    items: List[ReceiptItem]
 
 def estimate_shelf_life(ingredient_name: str, notes: str = ""):
     """
@@ -19,29 +38,13 @@ def estimate_shelf_life(ingredient_name: str, notes: str = ""):
         return None
 
     prompt = f"""
-        Kamu membantu bisnis F&B kecil memperkirakan berapa lama sebuah bahan
-        akan bertahan, dengan asumsi bahan tersebut baru dibeli dalam kondisi
-        segar hari ini dan disimpan secara normal (kulkas/suhu ruang, sesuai
-        jenis bahannya).
+    Kamu membantu bisnis F&B kecil memperkirakan berapa lama sebuah bahan
+    akan bertahan, dengan asumsi bahan tersebut baru dibeli dalam kondisi
+    segar hari ini dan disimpan secara normal (kulkas/suhu ruang, sesuai
+    jenis bahannya).
 
-        Nama bahan: {ingredient_name}
-        {"Catatan tambahan dari user: " + notes if notes else ""}
-
-        PENTING: "estimated_days" harus berupa SATU angka pasti, bukan rentang.
-        Kalau umur simpan bahan ini biasanya berupa rentang (misal 10-14 hari),
-        gunakan ANGKA BATAS BAWAH dari rentang tersebut (contoh: 10, bukan 12
-        atau 14). Lebih baik konservatif/aman daripada terlalu optimis, supaya
-        bahan tidak dianggap masih layak pakai padahal sebenarnya sudah lewat
-        waktu amannya.
-
-        Jawab HANYA dalam format JSON berikut, tanpa markdown, tanpa penjelasan
-        di luar JSON. Isi "note" wajib menggunakan Bahasa Indonesia, dan boleh
-        tetap menyebutkan rentang aslinya di situ untuk konteks:
-        {{
-        "estimated_days": integer,
-        "confidence": "high" | "medium" | "low",
-        "note": "alasan singkat, misalnya umur simpan umum untuk jenis bahan ini"
-        }}
+    Nama bahan: {ingredient_name}
+    {"Catatan tambahan dari user: " + notes if notes else ""}
     """
 
     try:
@@ -49,12 +52,22 @@ def estimate_shelf_life(ingredient_name: str, notes: str = ""):
         response = client.models.generate_content(
             model="gemini-3.6-flash",
             contents=[prompt],
-            config={"response_mime_type": "application/json"},
+            config={
+                "response_mime_type": "application/json",
+                "response_schema": ShelfLifeResponse,
+                "temperature": 0.0, # Deterministik & faktual
+            },
         )
         result = json.loads(response.text)
         if result.get("estimated_days") is None:
             return None
-        return result
+            
+        # Mengembalikan dictionary persis seperti format awal (membuang key 'reasoning')
+        return {
+            "estimated_days": result["estimated_days"],
+            "confidence": result["confidence"],
+            "note": result["note"]
+        }
     except Exception:
         logger.exception("Gemini expiry estimation failed")
         return None
@@ -63,7 +76,8 @@ def parse_receipt(image_bytes: bytes, mime_type: str):
     """
     OCR struk belanja. Vision di sini cuma buat BACA TEKS (nama & qty item),
     bukan buat nebak kesegaran — jadi tetep akurat. Return list of dict
-    [{"name": str, "quantity": float, "unit": str}, ...] atau [] kalau gagal.
+    [{"name": str, "quantity": float, "unit": str, "total_price": float|None}, ...] 
+    atau [] kalau gagal.
     """
     from google import genai
     from google.genai import types
@@ -72,18 +86,12 @@ def parse_receipt(image_bytes: bytes, mime_type: str):
         return []
 
     prompt = """
-            Baca struk belanja pada foto ini. Ekstrak setiap item bahan makanan/minuman
-            yang dibeli (abaikan item non-bahan makanan seperti kantong plastik, biaya
-            layanan, pajak, dsb).
-
-            Jawab HANYA dalam format JSON array, tanpa markdown:
-            [
-            {"name": "nama bahan (singkat & umum)", "quantity": number, "unit": "kg|g|pcs|liter|ml"}
-            ]
-
-            Kalau quantity tidak jelas dari struk, gunakan 1 sebagai default.
-            Kalau tidak ada item yang bisa dikenali, jawab array kosong [].
-        """
+    Baca struk belanja pada foto ini. Ekstrak setiap item bahan makanan/minuman
+    yang dibeli (abaikan item non-bahan makanan seperti kantong plastik, biaya
+    layanan, pajak, dsb).
+    
+    Kalau tidak ada item yang bisa dikenali, pastikan array list item kosong.
+    """
     try:
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
         response = client.models.generate_content(
@@ -92,9 +100,16 @@ def parse_receipt(image_bytes: bytes, mime_type: str):
                 types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
                 prompt,
             ],
-            config={"response_mime_type": "application/json"},
+            config={
+                "response_mime_type": "application/json",
+                "response_schema": ReceiptResponse,
+                "temperature": 0.0, # Ekstraksi teks/OCR harus sangat deterministik
+            },
         )
-        items = json.loads(response.text)
+        data = json.loads(response.text)
+        
+        # Ambil hanya array 'items' untuk di-return, mengabaikan 'reasoning'
+        items = data.get("items", [])
         return items if isinstance(items, list) else []
     except Exception:
         logger.exception("Gemini receipt parsing failed")

@@ -6,3 +6,4 @@ django-cors-headers
 google-genai
 rapidfuzz
 whitenoise
+djangorestframework-simplejwt

@@ -16,8 +16,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-from rest_framework.authtoken.views import obtain_auth_token
-from accounts.views import RegisterView
+from accounts.views import CsrfCookieView, LoginView, LogoutView, RefreshView, RegisterView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -26,7 +25,10 @@ urlpatterns = [
     path("api/v1/", include("menus.urls")),
     path("api/v1/", include("sales.urls")),
     path("api/v1/", include("briefs.urls")),
+    path("api/v1/auth/csrf/", CsrfCookieView.as_view()),
     path("api/v1/chat/", include("chat.urls")),
-    path("api/v1/auth/login/", obtain_auth_token),
+    path("api/v1/auth/login/", LoginView.as_view()),
+    path("api/v1/auth/logout/", LogoutView.as_view()),
+    path("api/v1/auth/refresh/", RefreshView.as_view()),
     path("api/v1/auth/register/", RegisterView.as_view()),
 ]

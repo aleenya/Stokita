@@ -1,106 +1,112 @@
 """
 AI integration stub for Stokita (F5 Purchase Recommendation).
- 
-Right now this uses simple RULE-BASED logic so the whole system works
-end-to-end without any AI. Later, you can replace the body of
-`generate_recommendations` with a Gemini call that takes the same
-`context` dict and returns the same list shape.
- 
-That way nothing else in the codebase has to change when you add AI.
 """
 from decimal import Decimal
 from datetime import date, timedelta
 import logging
 import json
 from django.conf import settings
+
+# Tambahkan import ini untuk tipe data dan skema
+from typing import Optional, List, Literal
+from pydantic import BaseModel, Field
+
 logger = logging.getLogger(__name__)
- 
- 
+
+# ==========================================
+# 1. DEFINISI SCHEMA UNTUK GEMINI
+# ==========================================
+
+class RecommendationItem(BaseModel):
+    action_type: Literal["discount", "review_menu"]
+    title: str = Field(description="Judul SANGAT singkat (maks ~6 kata), langsung actionable.")
+    message: str = Field(description="1 kalimat singkat alasannya, nama menu/bahan di awal.")
+    discount_pct: Optional[int] = Field(description="Angka 5-50. null jika review_menu.")
+    related_ingredient_id: Optional[str] = Field(description="String uuid dari bahan terkait, atau null")
+    related_menu_id: Optional[str] = Field(description="String uuid dari menu terkait, atau null")
+    rupiah_impact: int = Field(description="Perkiraan dampak rupiah, isi 0 jika tidak tahu")
+
+class RecommendationResponse(BaseModel):
+    reasoning: str = Field(description="Berpikir langkah demi langkah: analisis data yang diberikan sebelum memutuskan tindakan. Tuliskan dalam Bahasa Indonesia.")
+    recommendations: List[RecommendationItem]
+
+class ImpactAnalysisResponse(BaseModel):
+    reasoning: str = Field(description="Analisis perbandingan angka baseline vs followup langkah demi langkah.")
+    answer: Literal["positive", "negative", "inconclusive", "external"]
+
+
+# ==========================================
+# 2. LOGIC & HELPER FUNCTIONS
+# ==========================================
+
 def _rule_based_recommendations(context):
-    """Baseline logic: works today, no AI needed."""
+    """ Baseline PRICING logic: works today, no AI needed. """
     actions = []
- 
-    # 1. low-stock -> restock
-    for ing in context["ingredients"]:
-        if ing["low_stock_threshold"] is not None and \
-           ing["current_stock"] <= ing["low_stock_threshold"]:
-            actions.append({
-                "action_type": "restock",
-                "message": f"{ing['name']} is low ({ing['current_stock']} {ing['unit']} left). Consider restocking.",
-                "related_ingredient_id": ing["id"],
-                "rupiah_impact": 0,
-            })
- 
-    # 2. worrying-margin menus -> review
-    for menu in context["profit"]:
+
+    for menu in context.get("profit", []):
         if menu["state"] == "worrying":
             actions.append({
                 "action_type": "review_menu",
-                "message": f"{menu['name']} margin is worrying ({menu['margin_pct']}%). Review pricing or recipe.",
+                "title": f"Review Harga Menu {menu['name']}",
+                "message": f"Margin {menu['name']} sedang bermasalah ({menu.get('margin_pct', 0)}%). Tinjau ulang harga jual atau resepnya.",
                 "related_menu_id": menu["menu_id"],
+                "discount_pct": None,
                 "rupiah_impact": 0,
             })
- 
-    # 3. expiring stock -> discount
-    for ing in context["expiring_soon"]:
+
+    FALLBACK_DISCOUNT_PCT = 20
+    for ing in context.get("expiring_soon", []):
         actions.append({
             "action_type": "discount",
-            "message": f"{ing['name']} expires soon. Consider a discount to clear it before waste.",
+            "title": f"Diskon {FALLBACK_DISCOUNT_PCT}% Bahan {ing['name']}",
+            "message": f"{ing['name']} akan segera kedaluwarsa. Diskon disarankan supaya cepat terjual sebelum terbuang.",
             "related_ingredient_id": ing["id"],
+            "discount_pct": FALLBACK_DISCOUNT_PCT,
             "rupiah_impact": 0,
         })
- 
-    return actions
- 
-_VALID_ACTION_TYPES = {"restock", "discount", "review_menu", "expiry_alert"}
 
+    return actions
+
+_VALID_ACTION_TYPES = {"discount", "review_menu"}
 
 def _build_prompt(context):
-    """Turn the context dict into a plain-language + JSON prompt for Gemini."""
+    """ Turn the pricing context dict into a plain-language prompt for Gemini. """
     return f"""
-You are a decision-support assistant for a small F&B business owner.
-Based on the business data below, recommend concrete actions the owner
-should take today. Ground every recommendation in the actual numbers
-given — do not invent ingredients, menus, or figures that aren't in the data.
+Anda adalah asisten pendukung keputusan HARGA untuk pemilik usaha F&B skala kecil.
+Tugas Anda HANYA dua hal:
+1. Menyarankan diskon (dengan PERSENTASE spesifik) untuk bahan yang akan segera kedaluwarsa (supaya cepat terjual sebelum terbuang).
+2. Menyarankan peninjauan/kenaikan harga untuk menu yang marginnya sedang bermasalah.
 
-Business data:
+Anda TIDAK menangani keputusan stok/restock — itu di luar tugas Anda.
+
+Dasarkan setiap rekomendasi pada angka aktual yang diberikan di bawah ini.
+
+Data bisnis:
 {json.dumps(context, indent=2, default=str)}
 
-Respond with ONLY a JSON array (no markdown, no extra text), where each
-item has this exact shape:
-[
-  {{
-    "action_type": "restock" | "discount" | "review_menu" | "expiry_alert",
-    "message": "short, clear recommendation in plain language",
-    "related_ingredient_id": "uuid string or null",
-    "related_menu_id": "uuid string or null",
-    "rupiah_impact": integer estimate of the rupiah impact, 0 if unknown
-  }}
-]
-
-Rules:
-- related_ingredient_id must be one of the ingredient "id" values in the data, or null.
-- related_menu_id must be one of the menu "menu_id" values in the data, or null.
-- Only recommend restocking ingredients that appear in the low-stock data.
-- Only recommend reviewing menus that appear in the profit data with a
-  "worrying" or low state.
-- Keep the array to at most 8 actions, prioritizing the highest-impact ones.
+Aturan:
+- related_ingredient_id harus dari data "expiring_soon", atau null.
+- related_menu_id harus dari data "profit", atau null.
+- "discount" WAJIB punya discount_pct terisi (jangan null, jangan 0).
+- Batasi rekomendasi maksimal 8 tindakan, prioritaskan dampak tertinggi.
 """
 
-
 def _parse_gemini_response(text, context):
-    """Parse and validate Gemini's JSON output against the context we sent."""
+    """Parse and validate Gemini's JSON output."""
     cleaned = text.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
-    actions = json.loads(cleaned)
+    data = json.loads(cleaned)
+    
+    # Ambil list recommendations dari dalam objek
+    actions = data.get("recommendations", [])
 
-    valid_ingredient_ids = {i["id"] for i in context["ingredients"]}
-    valid_menu_ids = {m["menu_id"] for m in context["profit"]}
+    valid_ingredient_ids = {i["id"] for i in context.get("expiring_soon", [])}
+    valid_menu_ids = {m["menu_id"] for m in context.get("profit", [])}
 
     validated = []
     for a in actions:
         if a.get("action_type") not in _VALID_ACTION_TYPES:
             continue
-        if not a.get("message"):
+        if not a.get("message") or not a.get("title"):
             continue
 
         ingredient_id = a.get("related_ingredient_id")
@@ -111,9 +117,22 @@ def _parse_gemini_response(text, context):
         if menu_id not in valid_menu_ids:
             menu_id = None
 
+        discount_pct = a.get("discount_pct")
+        if a["action_type"] == "discount":
+            try:
+                discount_pct = float(discount_pct)
+                if not (0 < discount_pct <= 90):
+                    continue 
+            except (TypeError, ValueError):
+                continue 
+        else:
+            discount_pct = None 
+
         validated.append({
             "action_type": a["action_type"],
+            "title": a["title"],
             "message": a["message"],
+            "discount_pct": discount_pct,
             "related_ingredient_id": ingredient_id,
             "related_menu_id": menu_id,
             "rupiah_impact": a.get("rupiah_impact") or 0,
@@ -121,30 +140,23 @@ def _parse_gemini_response(text, context):
 
     return validated
 
-
 def _gemini_recommendations(context):
     from google import genai
 
     client = genai.Client(api_key=settings.GEMINI_API_KEY)
     prompt = _build_prompt(context)
-
     response = client.models.generate_content(
         model="gemini-3.6-flash",
         contents=prompt,
-        config={"response_mime_type": "application/json"},
+        config={
+            "response_mime_type": "application/json",
+            "response_schema": RecommendationResponse,
+            "temperature": 0.4, 
+        },
     )
     return _parse_gemini_response(response.text, context)
 
-
 def generate_recommendations(context):
-    """
-    Public entry point. Returns a list of action dicts.
-
-    Tries Gemini first (if GEMINI_API_KEY is set). Falls back to
-    rule-based logic if the key is missing, the API call fails, or
-    the response can't be parsed/validated — so the brief always
-    generates something, even if Gemini is down.
-    """
     if settings.GEMINI_API_KEY:
         try:
             actions = _gemini_recommendations(context)
@@ -156,42 +168,29 @@ def generate_recommendations(context):
 
     return _rule_based_recommendations(context)
 
+
+# ==========================================
+# 3. IMPACT ANALYSIS (DETERMINISTIC)
+# ==========================================
+
 def _build_impact_prompt(action_message, baseline, followup, other_context):
     return f"""
-        Kamu membantu bisnis F&B kecil mengevaluasi apakah sebuah aksi yang
-        direkomendasikan benar-benar berdampak ke bisnis mereka.
+Kamu membantu bisnis F&B kecil mengevaluasi apakah sebuah aksi yang 
+direkomendasikan benar-benar berdampak ke bisnis mereka.
 
-        Aksi yang dilakukan: {action_message}
+Aksi yang dilakukan: {action_message}
 
-        Metrik SEBELUM aksi dilakukan (baseline, agregat 7 hari):
-        {json.dumps(baseline, indent=2, default=str)}
+Metrik SEBELUM aksi dilakukan (baseline, agregat 7 hari):
+{json.dumps(baseline, indent=2, default=str)}
 
-        Metrik SETELAH beberapa waktu berjalan (follow-up, agregat 7 hari terbaru):
-        {json.dumps(followup, indent=2, default=str)}
+Metrik SETELAH beberapa waktu berjalan (follow-up, agregat 7 hari terbaru):
+{json.dumps(followup, indent=2, default=str)}
 
-        Konteks lain yang mungkin relevan (aksi lain yang terjadi di periode yang
-        sama):
-        {other_context or "Tidak ada konteks tambahan."}
-
-        Pikirkan langkah demi langkah sebelum menjawab:
-        1. Bandingkan angka baseline vs follow-up — naik, turun, atau stabil?
-        2. Apakah besarnya perubahan itu masuk akal disebabkan oleh aksi yang dilakukan?
-        3. Apakah ada faktor lain di "konteks lain" yang lebih mungkin jadi penyebab?
-        4. Kalau datanya belum cukup jelas, jangan memaksakan jawaban positif/negatif.
-
-        Jawab HANYA dalam format JSON berikut, tanpa markdown:
-        {{
-        "answer": "positive" | "negative" | "inconclusive" | "external",
-        "reasoning": "penjelasan singkat dalam Bahasa Indonesia, sebutkan angka konkret yang dibandingkan"
-        }}
-    """
-
+Konteks lain yang mungkin relevan:
+{other_context or "Tidak ada konteks tambahan."}
+"""
 
 def analyze_impact(action_message: str, baseline: dict, followup: dict, other_context: str = ""):
-    """
-    Return dict {"answer": str, "reasoning": str} atau None kalau gagal
-    (key gak ada, API error, atau response gak valid JSON).
-    """
     from google import genai
 
     if not settings.GEMINI_API_KEY:
@@ -203,7 +202,11 @@ def analyze_impact(action_message: str, baseline: dict, followup: dict, other_co
         response = client.models.generate_content(
             model="gemini-3.6-flash",
             contents=prompt,
-            config={"response_mime_type": "application/json"},
+            config={
+                "response_mime_type": "application/json",
+                "response_schema": ImpactAnalysisResponse,
+                "temperature": 0.0, 
+            },
         )
         result = json.loads(response.text)
         if result.get("answer") not in {"positive", "negative", "inconclusive", "external"}:

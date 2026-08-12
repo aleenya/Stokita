@@ -1,12 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 
 /* =========================================================================
-   SIDEBAR — port dari dashboard(2).html
-   Warna ditulis sebagai hex arbitrary (bg-[#F7F5F0]) biar nggak butuh
-   tailwind.config custom. Map-nya sama persis dengan Dashboard.jsx:
-     bg #F7F5F0 · surface #FFFFFF · border #E4E2DC · border-strong #CBD1DB
-     navy #18233D · slate #5B6B82 · slate-muted #8B96A6
-     brand #28579C · brand-dark #1E4278 · brand-light #EAF1FB
+   SIDEBAR
    ========================================================================= */
 
 /* ---- ikon (stroke 2, 17px) ---- */
@@ -71,9 +66,6 @@ const IconPeople = () => (
   </svg>
 )
 
-/* ---- daftar nav: key-nya SAMA dengan state `page` di App.jsx ----
-   Label diubah biar match HTML (dashboard → "Today", ingredients → "Stock",
-   profit → "Performance"), tapi value-nya nggak disentuh. */
 export const NAV_ITEMS = [
   { key: 'dashboard', label: 'Today', Icon: IconToday },
   { key: 'ingredients', label: 'Stock', Icon: IconStock },
@@ -85,7 +77,6 @@ export const NAV_ITEMS = [
 
 export const pageLabel = (key) => NAV_ITEMS.find((i) => i.key === key)?.label || 'Stokita'
 
-/* ---- logo ---- */
 function Logo() {
   return (
     <svg width="20" height="20" viewBox="0 0 48 48" fill="none" aria-hidden="true">
@@ -102,21 +93,20 @@ function Logo() {
 
 export default function Sidebar({
   page,
-  onNavigate,
-  pages,
+  onNavigate = () => {},
+  pages = ['dashboard', 'ingredients', 'menus', 'sales', 'profit', 'people'],
   businessName = 'Stokita',
   userName = 'User',
   userRole = 'Staff',
-  onLogout,
-  onAskStokita,
-  mobileOpen,
-  onMobileClose,
+  onLogout = () => {},
+  onAskStokita = () => {},
+  mobileOpen = false, // Nilai default aman
+  onMobileClose = () => {}, // Nilai default aman
 }) {
   const items = NAV_ITEMS.filter((i) => pages.includes(i.key))
   const [identityOpen, setIdentityOpen] = useState(false)
   const identityRef = useRef(null)
 
-  // tutup popover identity kalau klik di luar
   useEffect(() => {
     if (!identityOpen) return
     const onClick = (e) => {
@@ -126,7 +116,6 @@ export default function Sidebar({
     return () => document.removeEventListener('mousedown', onClick)
   }, [identityOpen])
 
-  // Esc buat nutup drawer mobile
   useEffect(() => {
     if (!mobileOpen) return
     const onKey = (e) => e.key === 'Escape' && onMobileClose()
@@ -138,21 +127,19 @@ export default function Sidebar({
 
   return (
     <>
-      {/* backdrop mobile */}
       {mobileOpen && (
         <div
-          className="md:hidden fixed inset-0 z-40 bg-[#18233D]/40"
+          className="md:hidden fixed inset-0 z-40 bg-[#18233D]/40 backdrop-blur-sm transition-opacity"
           aria-hidden="true"
           onClick={onMobileClose}
         />
       )}
 
       <aside
-        className={`w-56 shrink-0 bg-white border-r border-[#E4E2DC] flex flex-col fixed inset-y-0 left-0 z-50 transition-transform duration-200 md:static md:translate-x-0 md:transition-none ${
+        className={`w-56 shrink-0 bg-white border-r border-[#E4E2DC] flex flex-col fixed inset-y-0 left-0 z-50 transition-transform duration-300 ease-in-out md:static md:translate-x-0 md:transition-none ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        {/* logo */}
         <div className="h-14 flex items-center gap-2.5 px-5 pt-4">
           <Logo />
           <span className="text-[13px] font-bold tracking-tight text-[#8B96A6]">Stokita</span>
@@ -162,43 +149,23 @@ export default function Sidebar({
             aria-label="Close menu"
             className="md:hidden ml-auto w-8 h-8 flex items-center justify-center rounded-md text-[#8B96A6] hover:bg-[#F7F5F0] transition-colors"
           >
-            <svg
-              className="w-4 h-4"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M18 6 6 18" />
               <path d="m6 6 12 12" />
             </svg>
           </button>
         </div>
 
-        {/* business switcher — sementara display only, belum ada endpoint multi-business */}
         <button
           type="button"
           className="w-full flex items-center justify-between gap-2 px-5 pb-3.5 pt-0.5 text-left hover:bg-[#F7F5F0] transition-colors border-b border-[#E4E2DC]"
         >
           <span className="text-[15px] font-bold text-[#18233D] truncate">{businessName}</span>
-          <svg
-            className="w-3.5 h-3.5 text-[#8B96A6] shrink-0"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
+          <svg className="w-3.5 h-3.5 text-[#8B96A6] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="m6 9 6 6 6-6" />
           </svg>
         </button>
 
-        {/* nav */}
         <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto" aria-label="Main navigation">
           {items.map(({ key, label, Icon }) => {
             const active = page === key
@@ -210,7 +177,7 @@ export default function Sidebar({
                 onClick={(e) => {
                   e.preventDefault()
                   onNavigate(key)
-                  onMobileClose()
+                  onMobileClose() // Menutup otomatis saat ganti menu
                 }}
                 className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                   active
@@ -225,30 +192,19 @@ export default function Sidebar({
           })}
         </nav>
 
-        {/* Ask Stokita */}
         <div className="px-3 pb-3">
           <button
             type="button"
             onClick={onAskStokita}
             className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-md border border-[#E4E2DC] bg-[#F7F5F0] text-left text-sm text-[#8B96A6] hover:border-[#CBD1DB] hover:text-[#5B6B82] transition-colors"
           >
-            <svg
-              className="w-[15px] h-[15px] shrink-0"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
+            <svg className="w-[15px] h-[15px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
             <span>Ask Stokita&hellip;</span>
           </button>
         </div>
 
-        {/* identity block + logout */}
         <div className="relative" ref={identityRef}>
           {identityOpen && (
             <div className="absolute bottom-full left-3 right-3 mb-1 rounded-lg border border-[#E4E2DC] bg-white shadow-[0_14px_32px_-10px_rgba(20,29,52,0.28),0_2px_8px_rgba(20,29,52,0.08)] py-1">
@@ -284,10 +240,7 @@ export default function Sidebar({
   )
 }
 
-/* =========================================================================
-   MOBILE TOPBAR — dipakai App.jsx, ditaruh di luar <aside>
-   ========================================================================= */
-export function MobileTopbar({ title, onOpenMenu, open }) {
+export function MobileTopbar({ title, onOpenMenu = () => {}, open = false }) {
   return (
     <div className="md:hidden fixed top-0 inset-x-0 z-40 h-14 flex items-center justify-between px-4 bg-white border-b border-[#E4E2DC]">
       <button
@@ -297,16 +250,7 @@ export function MobileTopbar({ title, onOpenMenu, open }) {
         aria-expanded={open}
         className="w-9 h-9 -ml-1.5 flex items-center justify-center rounded-md text-[#5B6B82] hover:bg-[#F7F5F0] transition-colors"
       >
-        <svg
-          className="w-5 h-5"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <line x1="4" y1="7" x2="20" y2="7" />
           <line x1="4" y1="12" x2="20" y2="12" />
           <line x1="4" y1="17" x2="20" y2="17" />

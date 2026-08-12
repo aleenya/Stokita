@@ -2,7 +2,8 @@
 cost so profit (F3) can be computed later. Runs in a single transaction."""
 from decimal import Decimal
 from django.db import transaction
-from inventory.models import StockMovement
+from django.db.models import F, DecimalField, ExpressionWrapper, Sum
+from inventory.models import Ingredient, StockMovement
 from menus.models import Menu
 from .models import Sale, SaleItem
 
@@ -17,6 +18,45 @@ def classify_margin_state(margin_pct, target):
     return "low"
 
 
+def compute_menu_profit_states(business, date_from=None, date_to=None):
+    """F3: per-menu revenue/cost/margin, aggregated in ONE grouped query
+    instead of one aggregate query per menu — used by both
+    /analytics/profit (sales) and the daily brief context builder
+    (briefs), which previously duplicated this as a per-menu N+1 loop."""
+    items_qs = SaleItem.objects.filter(sale__business=business)
+    if date_from:
+        items_qs = items_qs.filter(sale__sale_date__gte=date_from)
+    if date_to:
+        items_qs = items_qs.filter(sale__sale_date__lte=date_to)
+
+    agg_rows = items_qs.values("menu_id").annotate(
+        revenue=Sum(ExpressionWrapper(F("unit_price") * F("quantity"), output_field=DecimalField())),
+        cost=Sum(ExpressionWrapper(F("unit_cost") * F("quantity"), output_field=DecimalField())),
+    )
+    agg_by_menu = {row["menu_id"]: row for row in agg_rows}
+
+    results = []
+    for menu in Menu.objects.filter(business=business):
+        agg = agg_by_menu.get(menu.id, {})
+        revenue = agg.get("revenue") or 0
+        cost = agg.get("cost") or 0
+        if revenue:
+            margin_pct = float((revenue - cost) / revenue * 100)
+            state = classify_margin_state(margin_pct, float(menu.target_margin))
+        else:
+            # Belum pernah kejual — jangan dipaksa masuk skala high/stable/low,
+            # itu bikin menu tanpa data ke-klaim "sehat" secara keliru.
+            margin_pct = 0
+            state = "no_data"
+        results.append({
+            "menu_id": str(menu.id),
+            "name": menu.name,
+            "margin_pct": round(margin_pct, 1),
+            "state": state,
+        })
+    return results
+
+
 class InsufficientStockError(Exception):
     def __init__(self, ingredient_name, available, required):
         self.ingredient_name = ingredient_name
@@ -26,6 +66,18 @@ class InsufficientStockError(Exception):
             f"Stok '{ingredient_name}' gak cukup: tersedia {available}, butuh {required}"
         )
 
+def _effective_unit_price(menu):
+    if menu.active_discount_pct and menu.active_discount_ingredient_id:
+        ing = menu.active_discount_ingredient
+        expired = menu.active_discount_expiry_date and menu.active_discount_expiry_date < date.today()
+        if ing.current_stock <= 0 or expired:
+            menu.active_discount_pct = None
+            menu.active_discount_ingredient = None
+            menu.active_discount_expiry_date = None
+            menu.save(update_fields=["active_discount_pct", "active_discount_ingredient", "active_discount_expiry_date"])
+        else:
+            return menu.sell_price * (1 - menu.active_discount_pct / 100)
+    return menu.sell_price
 
 @transaction.atomic
 def record_sale(business, user, sale_date, items):
@@ -39,13 +91,16 @@ def record_sale(business, user, sale_date, items):
     sale = Sale.objects.create(business=business, sale_date=sale_date, recorded_by=user)
 
     for line in items:
-        menu = Menu.objects.select_for_update().get(id=line["menu_id"], business=business)
+        menu = Menu.objects.select_for_update().get(
+            id=line["menu_id"], business=business, is_active=True,
+        )
         qty = int(line["quantity"])
 
         # snapshot price and cost at sale time
         SaleItem.objects.create(
             sale=sale, menu=menu, quantity=qty,
-            unit_price=menu.sell_price, unit_cost=menu.unit_cost(),
+            unit_price=_effective_unit_price(menu), 
+            unit_cost=menu.unit_cost(),
         )
 
         # deduct each recipe ingredient from stock (locked to avoid a
@@ -66,3 +121,17 @@ def record_sale(business, user, sale_date, items):
             )
 
     return sale
+
+
+@transaction.atomic
+def delete_sale(sale):
+    """B7: deleting a sale must give back the stock it deducted, or a
+    wrong/duplicate entry that gets removed leaves ingredients
+    permanently short by that amount. StockMovement.related_sale is
+    SET_NULL, so without this the movements would just survive orphaned
+    and current_stock would never be corrected."""
+    for movement in sale.stock_movements.all():
+        ingredient = Ingredient.objects.select_for_update().get(pk=movement.ingredient_id)
+        ingredient.current_stock -= movement.change_qty  # change_qty is negative for sale deductions, so this adds it back
+        ingredient.save(update_fields=["current_stock"])
+    sale.delete()

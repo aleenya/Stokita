@@ -1,20 +1,18 @@
-from django.db.models import Sum, F, DecimalField, ExpressionWrapper
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from menus.models import Menu
-from .models import Sale, SaleItem
-from .serializers import SaleSerializer
-from .services import record_sale, InsufficientStockError, classify_margin_state
+from .models import Sale
+from .serializers import RecordSaleSerializer, SaleSerializer
+from .services import record_sale, InsufficientStockError, compute_menu_profit_states, delete_sale
 from rest_framework.permissions import IsAuthenticated
 from accounts.permissions import IsOwner
 from accounts.permissions import feature_required
 import csv
 import io
 from .matching import detect_columns, match_menu_name
-from menus.models import Menu
- 
- 
+
+
 class SaleViewSet(viewsets.ModelViewSet):
     serializer_class = SaleSerializer
 
@@ -24,25 +22,35 @@ class SaleViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
     def get_queryset(self):
-        qs = Sale.objects.filter(business=self.request.user.business)
+        qs = Sale.objects.filter(business=self.request.user.business).prefetch_related("items")
         date = self.request.query_params.get("date")
         if date:
             qs = qs.filter(sale_date=date)
         return qs
  
     def create(self, request):
+        input_serializer = RecordSaleSerializer(data=request.data)
+        input_serializer.is_valid(raise_exception=True)
+        validated = input_serializer.validated_data
+
         try:
             sale = record_sale(
                 business=request.user.business,
                 user=request.user,
-                sale_date=request.data["sale_date"],
-                items=request.data["items"],
+                sale_date=validated["sale_date"],
+                items=[
+                    {"menu_id": str(item["menu_id"]), "quantity": item["quantity"]}
+                    for item in validated["items"]
+                ],
             )
         except InsufficientStockError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Menu.DoesNotExist:
             return Response({"error": "Menu gak ditemukan."}, status=status.HTTP_400_BAD_REQUEST)
         return Response(SaleSerializer(sale).data, status=status.HTTP_201_CREATED)
+
+    def perform_destroy(self, instance):
+        delete_sale(instance)
 
     @action(detail=False, methods=["post"], url_path="parse-csv")
     def parse_csv(self, request):
@@ -114,30 +122,7 @@ class ProfitAnalyticsViewSet(viewsets.ViewSet):
         business = request.user.business
         date_from = request.query_params.get("from")
         date_to = request.query_params.get("to")
- 
-        results = []
-        for menu in Menu.objects.filter(business=business):
-            items = SaleItem.objects.filter(menu=menu, sale__business=business)
-            if date_from:
-                items = items.filter(sale__sale_date__gte=date_from)
-            if date_to:
-                items = items.filter(sale__sale_date__lte=date_to)
- 
-            agg = items.aggregate(
-                revenue=Sum(ExpressionWrapper(F("unit_price") * F("quantity"),
-                            output_field=DecimalField())),
-                cost=Sum(ExpressionWrapper(F("unit_cost") * F("quantity"),
-                         output_field=DecimalField())),
-            )
-            revenue = agg["revenue"] or 0
-            cost = agg["cost"] or 0
-            margin_pct = float((revenue - cost) / revenue * 100) if revenue else 0
-            results.append({
-                "menu_id": str(menu.id),
-                "name": menu.name,
-                "margin_pct": round(margin_pct, 1),
-                "state": classify_margin_state(margin_pct, float(menu.target_margin)),
-            })
+        results = compute_menu_profit_states(business, date_from, date_to)
         return Response({"menus": results})
 
    
