@@ -42,129 +42,89 @@ const fmtDateTime = (d) => {
 
 const num = (v) => (v === null || v === undefined || v === '' ? 0 : Number(v))
 
+// DRF list endpoints bisa balikin array langsung ATAU object paginated
+// {count, next, previous, results: [...]} tergantung setting pagination —
+// helper ini nerima keduanya biar gak diam-diam kosong kalau backend
+// pagination-nya nyala.
+const extractList = (data) => {
+  if (Array.isArray(data)) return data
+  if (data && Array.isArray(data.results)) return data.results
+  return []
+}
+
 /* =========================================================================
    DERIVED LOGIC
    ========================================================================= */
 
-function actionDestination(actionType) {
-  if (actionType === 'restock' || actionType === 'expiry_alert') {
-    return { label: 'Go to Ingredients', page: 'ingredients' }
-  }
-  return { label: 'Go to Menus', page: 'menus' }
-}
-
-function isCheckable(actionType) {
-  return actionType === 'review_menu' || actionType === 'discount'
-}
-
-// Title extractor (menjadikan Title Case)
-function toTitleCase(str) {
-  return str.replace(
-    /\w\S*/g,
-    (txt) => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase()
-  );
-}
-
-// Fungsi untuk membaca format dari AI dan fallback jika pesan kosong
-function parseActionData(a) {
-  let title = a.message ? a.message.trim() : "Item";
-  let summary = a.message ? a.message.trim() : "Tidak ada deskripsi dari AI.";
-  
-  let currentStock = a.current_stock !== undefined ? a.current_stock : null;
-  let recommendedQty = a.recommended_qty !== undefined ? a.recommended_qty : null;
-  let unit = a.unit || "";
-
-  // 1. Cek apakah ini format data pakai pipa (|) untuk restock
-  if (a.action_type === 'restock' && a.message && a.message.includes('|')) {
-    const parts = a.message.split('|');
-    if (parts.length >= 4) {
-      title = parts[0].trim();
-      currentStock = parseFloat(parts[1]) || 0;
-      recommendedQty = parseFloat(parts[2]) || null;
-      unit = parts[3].trim();
-      summary = `Butuh restock ${title}`; // Deskripsi cadangan
-    }
-  } else {
-    // 2. Fallback baca dari narasi teks
-    if (currentStock === null && a.message) {
-      // Deteksi angka dan unit setelah kata "negative", "is", atau "sisa"
-      const stockMatch = a.message.match(/(?:negative\s*\(?|is\s*|sisa\s*)([-0-9.]+)\s*([a-zA-Z]+)?/i);
-      if (stockMatch) {
-        currentStock = parseFloat(stockMatch[1]);
-        unit = stockMatch[2] || '';
-      }
-    }
-    
-    if (a.message) {
-      let text = a.message.trim();
-      text = text.replace(/^restock\s+/i, '');
-      const match = text.match(/^(.+?)(?:\s+(?:immediately|as|because|since|current|has|is|margin|expires|needs|terlalu|hampir|akan|sisa|tinggal)\b|;|,|\.)/i);
-      title = match ? match[1].trim() : text.split(' ').slice(0, 3).join(' ');
-    }
-  }
-
-  // Jika tetap null/NaN, anggap 0 biar logic alert jalan
-  if (currentStock === null || isNaN(currentStock)) currentStock = 0;
-
-  // Bersihkan karakter aneh di akhir judul
-  title = toTitleCase(title.replace(/[^a-zA-Z0-9 ]+$/, '').trim());
-
-  return { title, summary, currentStock, recommendedQty, unit };
-}
+// Brief actions are ONLY 'discount' | 'review_menu' now (backend sends
+// clean structured title/message directly — no more text-parsing needed).
+// Restock & expiry are NOT brief actions anymore; they come from live
+// inventory endpoints (see fetchInventoryAlerts) and are handled separately.
 
 function mapBriefAction(a) {
-  const dest = actionDestination(a.action_type)
-  const typeLabel = String(a.action_type || '').replace(/_/g, ' ')
-  const checkable = isCheckable(a.action_type)
-  const parsed = parseActionData(a);
-
-  const isZeroOrLess = parsed.currentStock <= 0;
-
-  let finalTitle = parsed.title;
-  if (a.action_type === 'restock') finalTitle = `Restock ${parsed.title}`;
-  if (a.action_type === 'review_menu') finalTitle = `Review Harga ${parsed.title}`;
-  if (a.action_type === 'discount') finalTitle = `Review Diskon ${parsed.title}`;
-  if (a.action_type === 'expiry_alert') finalTitle = `Cek Expired ${parsed.title}`;
-
   return {
     id: a.id,
     kind: 'brief',
     refId: a.id,
-    title: finalTitle,
-    summary: parsed.summary,
-    currentStock: parsed.currentStock,
-    recommendedQty: parsed.recommendedQty, 
-    unit: parsed.unit,
-    isZeroOrLess,
+    title: a.title,
+    summary: a.message,
     badge: {
-      label: a.action_type === 'expiry_alert' ? 'Urgent' : `Action Needed`,
-      tone: a.action_type === 'expiry_alert' ? 'critical' : 'warning',
+      label: a.action_type === 'discount' ? `Discount ${a.discount_pct ?? ''}%`.trim() : 'Review Price',
+      tone: 'warning',
     },
-    checkable,
-    actionLabel: checkable ? 'View details' : dest.label,
-    recommendation: a.message || "Tidak ada rekomendasi spesifik.",
-    reasoning: a.message || "Tidak ada detail yang diberikan oleh AI.",
-    signals: [`Action type: ${typeLabel}`],
-    suggestedAction: a.message || "Silakan cek halaman terkait untuk tindakan lebih lanjut.",
-    gotoLabel: dest.label,
-    gotoPage: dest.page,
+    checkable: true,
+    actionLabel: 'View details',
+    recommendation: a.message,
+    reasoning: a.message,
+    signals: [
+      a.discount_pct != null ? `Discount: ${a.discount_pct}%` : null,
+      `Est. impact: ${rupiah(a.rupiah_impact)}`,
+    ].filter(Boolean),
+    suggestedAction: a.message,
+    gotoLabel: 'Go to Menus',
+    gotoPage: 'menus',
+    refMenuId: a.related_menu,
   }
 }
 
 function mapHistoryItem(a) {
-  const parsed = parseActionData(a);
-  let finalTitle = parsed.title;
-  if (a.action_type === 'restock') finalTitle = `Restock ${parsed.title}`;
-  if (a.action_type === 'review_menu') finalTitle = `Review Harga ${parsed.title}`;
-  if (a.action_type === 'discount') finalTitle = `Review Diskon ${parsed.title}`;
-  if (a.action_type === 'expiry_alert') finalTitle = `Cek Expired ${parsed.title}`;
-
   return {
     id: a.id,
-    title: finalTitle,
-    summary: parsed.summary,
+    title: a.title,
+    summary: a.message,
+    discountLabel: a.action_type === 'discount' && a.discount_pct != null ? `Diskon ${a.discount_pct}% diterapkan` : null,
     kind: 'brief',
     actionTakenAt: a.acted_at,
+  }
+}
+
+// Live inventory alerts (NOT part of the 24h-gated brief — always fresh,
+// no acted/dismissed status, not checklist-able).
+function mapRestockItem(ing) {
+  const currentStock = num(ing.current_stock)
+  return {
+    id: ing.id,
+    refId: ing.id,
+    title: ing.name,
+    currentStock,
+    recommendedQty: ing.recommended_restock_qty ?? null,
+    unit: ing.unit || '',
+    isZeroOrLess: currentStock <= 0,
+    gotoPage: 'ingredients',
+  }
+}
+
+function mapExpiryItem(ing) {
+  return {
+    id: ing.id,
+    refId: ing.id,
+    title: ing.name,
+    summary: ing.expiry_date
+        ? `Kadaluwarsa ${fmtDate(ing.expiry_date)}`
+        : 'Segera kadaluwarsa',
+    badge: { label: 'Urgent', tone: 'critical' },
+    actionLabel: 'Go to Ingredients',
+    gotoPage: 'ingredients',
   }
 }
 
@@ -221,7 +181,7 @@ function SkeletonPriority({ wide }) {
 // -------------------------------------------------------------------------
 // Komponen Khusus Review/Discount
 // -------------------------------------------------------------------------
-function ReviewCard({ p, onToggle, onDetails }) {
+function ReviewCard({ p, onToggle, onDismiss }) {
   return (
       <div
           className={`group flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 rounded-xl bg-white px-4 sm:px-5 py-4 ${SHADOW_CARD} ${SHADOW_CARD_HOVER} transition-shadow`}
@@ -266,36 +226,16 @@ function ReviewCard({ p, onToggle, onDetails }) {
         </div>
 
         <div className="flex items-center justify-between sm:flex-col sm:items-end gap-1.5 shrink-0 pl-9 sm:pl-0">
-          <div className="flex items-center gap-1.5">
-            {p.completed ? (
-                <span className="text-xs font-semibold text-[#2E7D53] bg-[#EAF5EE] rounded-full px-2.5 py-1">
-              Handled
-            </span>
-            ) : (
-                <Badge label={p.badge.label} tone={p.badge.tone} />
-            )}
-          </div>
-          <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault()
-                onDetails(p.id)
-              }}
-              className="flex items-center gap-1 text-sm font-medium text-[#28579C] hover:text-[#1E4278]"
-          >
-            {p.actionLabel}
-            <svg
-                className="w-3.5 h-3.5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            >
-              <path d="m9 18 6-6-6-6" />
-            </svg>
-          </a>
+          <Badge label={p.badge.label} tone={p.badge.tone} />
+          {!p.completed && (
+              <button
+                  type="button"
+                  onClick={() => onDismiss(p.id)}
+                  className="text-xs font-medium text-[#8B96A6] hover:text-[#5B6B82]"
+              >
+                Dismiss
+              </button>
+          )}
         </div>
       </div>
   )
@@ -382,6 +322,59 @@ function ExpiryCard({ p, onGoto }) {
   )
 }
 
+// -------------------------------------------------------------------------
+// Komponen Item History (Bisa di-expand/collapse)
+// -------------------------------------------------------------------------
+function ActionHistoryItem({ a }) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <div className="rounded-lg bg-[#F7F5F0] overflow-hidden transition-all">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-[#F0EDE6] transition-colors"
+      >
+        <p className="text-sm font-semibold text-[#18233D] truncate flex-1">
+          {a.title}
+        </p>
+        {a.discountLabel && (
+            <span className="shrink-0 text-xs font-semibold text-[#2E7D53] bg-[#EAF5EE] rounded-full px-2 py-0.5">
+              {a.discountLabel}
+            </span>
+        )}
+        {/* Ikon panah yang akan muter kalau diklik */}
+        <svg
+          className={`w-4 h-4 text-[#8B96A6] shrink-0 transition-transform duration-200 ${
+            isOpen ? 'rotate-180' : 'rotate-0'
+          }`}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          viewBox="0 0 24 24"
+        >
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
+      
+      {/* Isi deskripsi yang muncul saat isOpen bernilai true */}
+      {isOpen && (
+        <div className="px-4 pb-3 pt-1 border-t border-[#E4E2DC]/60 mt-1">
+          <p className="text-sm text-[#5B6B82] leading-relaxed">{a.summary}</p>
+          <p className="text-[11px] font-medium text-[#8B96A6] mt-2">
+            Handled {fmtDateTime(a.actionTakenAt)}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// -------------------------------------------------------------------------
+// Container History Utama
+// -------------------------------------------------------------------------
 function ActionHistory({ items }) {
   if (!items.length) {
     return (
@@ -393,148 +386,36 @@ function ActionHistory({ items }) {
   return (
       <div className="space-y-2">
         {items.map((a) => (
-            <div
-                key={a.id}
-                className="flex items-center justify-between gap-3 rounded-lg bg-[#F7F5F0] px-4 py-3"
-            >
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-[#18233D] truncate">{a.title}</p>
-                <p className="text-sm text-[#5B6B82] truncate mt-0.5">{a.summary}</p>
-                <p className="text-xs text-[#8B96A6] mt-1">Handled {fmtDateTime(a.actionTakenAt)}</p>
-              </div>
-            </div>
+            <ActionHistoryItem key={a.id} a={a} />
         ))}
       </div>
   )
 }
 
 /* =========================================================================
-   RECOMMENDATION DETAIL PANEL
-   ========================================================================= */
-
-function DetailsPanel({ open, loading, priority, onClose, onPrimary, onDismiss }) {
-  useEffect(() => {
-    if (!open) return
-    const onKey = (e) => e.key === 'Escape' && onClose()
-    document.addEventListener('keydown', onKey)
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      document.body.style.overflow = ''
-    }
-  }, [open, onClose])
-
-  if (!open) return null
-  const p = priority
-
-  return (
-      <>
-        <div
-            className="fixed inset-0 z-40 bg-[#18233D]/40 backdrop-blur-[1px]"
-            aria-hidden="true"
-            onClick={onClose}
-        />
-        <div
-            className={`fixed inset-y-0 right-0 z-50 w-full max-w-[440px] bg-white ${SHADOW_FLOAT} overflow-y-auto`}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="details-title"
-        >
-          <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-[#E4E2DC]">
-            <p className="text-xs font-bold text-[#18233D] uppercase tracking-wide">Recommendation</p>
-            <button
-                type="button"
-                onClick={onClose}
-                aria-label="Close details"
-                className="w-7 h-7 flex items-center justify-center rounded-full text-[#8B96A6] hover:bg-[#F7F5F0] hover:text-[#18233D] transition-colors"
-            >
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 6 6 18" />
-                <path d="m6 6 12 12" />
-              </svg>
-            </button>
-          </div>
-
-          {loading && (
-              <div className="px-6 py-6 space-y-4 animate-pulse">
-                <div className="h-5 w-2/3 rounded bg-[#E4E2DC]" />
-                <div className="h-3 w-full rounded bg-[#E4E2DC]" />
-                <div className="h-3 w-5/6 rounded bg-[#E4E2DC]" />
-                <div className="h-20 w-full rounded-lg bg-[#E4E2DC]" />
-              </div>
-          )}
-
-          {!loading && !p && (
-              <div className="px-6 py-8 text-center">
-                <p className="text-sm font-semibold text-[#18233D]">Details aren't available right now.</p>
-                <p className="text-sm text-[#5B6B82] mt-1">
-                  The recommendation is still active — you can try again in a moment.
-                </p>
-              </div>
-          )}
-
-          {!loading && p && (
-              <div className="px-6 py-6 space-y-6">
-                <div>
-                  <h3 id="details-title" className="text-[19px] font-bold text-[#18233D]">
-                    {p.title}
-                  </h3>
-                  <div className="flex items-center gap-1.5 mt-2">
-                    <Badge label={p.badge.label} tone={p.badge.tone} />
-                    {p.completed && (
-                        <span className="inline-block text-xs font-semibold text-[#2E7D53] bg-[#EAF5EE] rounded-full px-2.5 py-1">
-                    Handled
-                  </span>
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-[11px] font-bold text-[#8B96A6] uppercase tracking-wide mb-1.5">
-                    Why this matters
-                  </p>
-                  <p className="text-sm text-[#5B6B82] leading-relaxed">{p.reasoning}</p>
-                </div>
-
-                <div className="rounded-lg bg-[#EAF1FB] px-4 py-3">
-                  <p className="text-[11px] font-bold text-[#1E4278] uppercase tracking-wide mb-1">
-                    Suggested action
-                  </p>
-                  <p className="text-sm text-[#18233D] font-medium">{p.suggestedAction}</p>
-                </div>
-
-                <div className="flex flex-col gap-2 pt-2 border-t border-[#E4E2DC]">
-                  <button
-                      type="button"
-                      onClick={() => onPrimary(p)}
-                      className="text-sm font-semibold text-white bg-[#28579C] hover:bg-[#1E4278] transition-colors rounded-full px-4 py-2.5"
-                  >
-                    {p.completed
-                        ? 'Reopen this recommendation'
-                        : p.gotoLabel
-                            ? `Do this — ${p.gotoLabel}`
-                            : 'Mark as handled'}
-                  </button>
-                  {!p.completed && (
-                      <button
-                          type="button"
-                          onClick={() => onDismiss(p.id)}
-                          className="text-sm font-semibold text-[#5B6B82] hover:text-[#18233D] transition-colors py-1"
-                      >
-                        Dismiss — not now
-                      </button>
-                  )}
-                </div>
-              </div>
-          )}
-        </div>
-      </>
-  )
-}
-
-/* =========================================================================
    TOAST
    ========================================================================= */
+
+function Countdown({ target }) {
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    if (!target) return
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [target])
+
+  if (!target) return null
+  let diff = new Date(target).getTime() - now
+  if (diff <= 0) return <>Ready to generate</>
+
+  const h = Math.floor(diff / 3600000)
+  const m = Math.floor((diff % 3600000) / 60000)
+  const s = Math.floor((diff % 60000) / 1000)
+  const pad = (n) => String(n).padStart(2, '0')
+
+  return <>Next in {pad(h)}:{pad(m)}:{pad(s)}</>
+}
 
 function Toast({ message }) {
   if (!message) return null
@@ -557,9 +438,12 @@ export default function Dashboard({ ownerName = 'there', onNavigate }) {
   const [brief, setBrief] = useState(null)
   const [regenerating, setRegenerating] = useState(false)
   const [salesToday, setSalesToday] = useState({ revenue: 0, volume: 0, prevRevenue: null })
+  const [lowStock, setLowStock] = useState([])
+  const [expiringSoon, setExpiringSoon] = useState([])
+  const [canGenerateNow, setCanGenerateNow] = useState(true)
+  const [nextGenerateAt, setNextGenerateAt] = useState(null)
+  const [historyRaw, setHistoryRaw] = useState([])
 
-  const [detailsId, setDetailsId] = useState(null)
-  const [detailsLoading, setDetailsLoading] = useState(false)
   const [toast, setToast] = useState('')
   const toastTimer = useRef(null)
 
@@ -576,36 +460,57 @@ export default function Dashboard({ ownerName = 'there', onNavigate }) {
     try {
       let briefData = null
       try {
-        briefData = (await api.get('/briefs/today/')).data
+        const res = await api.get('/briefs/today/')
+        briefData = res.data
+        setCanGenerateNow(res.data.can_generate_now ?? true)
+        setNextGenerateAt(res.data.next_generate_at ?? null)
       } catch (err) {
         if (err.response?.status === 404) {
-          briefData = null 
+          briefData = null
+          setCanGenerateNow(err.response.data?.can_generate_now ?? true)
+          setNextGenerateAt(null)
         } else {
           throw err
         }
       }
       setBrief(briefData)
 
-const today = new Date().toISOString().split('T')[0]
-      const salesRes = await api.get(`/sales?date=${today}`).catch(() => null)
-      
-      if (salesRes && Array.isArray(salesRes.data)) {
-        let totalRevenue = 0
-        let totalVolume = salesRes.data.length // Jumlah struk/order
+      // Restock & expiry are live inventory state, not part of the brief.
+      const [lowStockRes, expiringRes] = await Promise.all([
+        api.get('/ingredients/low-stock/').catch(() => null),
+        api.get('/ingredients/expiring/?days=7').catch(() => null),
+      ])
+      setLowStock(Array.isArray(lowStockRes?.data) ? lowStockRes.data : [])
+      const expiring = Array.isArray(expiringRes?.data) ? expiringRes.data : []
+      expiring.sort((a, b) => new Date(a.expiry_date) - new Date(b.expiry_date)) // paling deket duluan
+      setExpiringSoon(expiring)
 
-        // Looping untuk menjumlahkan semua harga item
-        salesRes.data.forEach(sale => {
+      // GET /briefs/actions/ -> semua BriefAction berstatus 'acted' milik
+      // business ini, LINTAS brief (bukan cuma brief hari ini) — biar
+      // history gak hilang tiap kali brief baru di-generate.
+      const historyRes = await api.get('/briefs/actions/').catch(() => null)
+      setHistoryRaw(extractList(historyRes?.data))
+
+      const today = new Date().toISOString().split('T')[0]
+      const salesRes = await api.get(`/sales/?date=${today}`).catch(() => null)
+      const salesList = extractList(salesRes?.data)
+
+      if (salesList.length || salesRes) {
+        let totalRevenue = 0
+        const totalVolume = salesList.length // Jumlah struk/order
+
+        salesList.forEach((sale) => {
           if (Array.isArray(sale.items)) {
-             sale.items.forEach(item => {
-                 totalRevenue += (num(item.unit_price) * num(item.quantity))
-             })
+            sale.items.forEach((item) => {
+              totalRevenue += num(item.unit_price) * num(item.quantity)
+            })
           }
         })
 
         setSalesToday({
           revenue: totalRevenue,
           volume: totalVolume,
-          prevRevenue: null // Dikosongkan dulu karena butuh narik data H-1
+          prevRevenue: null, // Dikosongkan dulu karena butuh narik data H-1
         })
       }
       // ==========================================
@@ -628,27 +533,34 @@ const today = new Date().toISOString().split('T')[0]
     }
   }
 
+  async function loadHistory() {
+    try {
+      const res = await api.get('/briefs/actions/')
+      setHistoryRaw(extractList(res.data))
+    } catch (err) {
+    }
+  }
+
   async function generateBrief() {
+    if (!canGenerateNow) {
+      showToast('Brief baru bisa digenerate lagi setelah 24 jam sejak generate terakhir.')
+      return
+    }
     setRegenerating(true)
     try {
       const res = await api.post('/briefs/generate/')
       setBrief(res.data)
+      setCanGenerateNow(false)
+      setNextGenerateAt(new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString())
       showToast('Brief generated.')
     } catch (err) {
-      showToast('Gagal generate brief.')
-    } finally {
-      setRegenerating(false)
-    }
-  }
-
-  async function regenerateBrief() {
-    setRegenerating(true)
-    try {
-      const res = await api.post('/briefs/generate/?force=true')
-      setBrief(res.data)
-      showToast('Brief regenerated.')
-    } catch (err) {
-      showToast('Gagal generate brief.')
+      if (err.response?.status === 429) {
+        setCanGenerateNow(false)
+        setNextGenerateAt(err.response.data?.next_available_at ?? null)
+        showToast('Masih cooldown — brief terakhir belum genap 24 jam.')
+      } else {
+        showToast('Gagal generate brief.')
+      }
     } finally {
       setRegenerating(false)
     }
@@ -661,32 +573,16 @@ const today = new Date().toISOString().split('T')[0]
     return allActions.filter((a) => a.status === 'pending').map(mapBriefAction)
   }, [status, allActions])
 
-  const priceActions = useMemo(() => priorities.filter((p) => p.checkable), [priorities])
-  
-  const restockActions = useMemo(
-      () => priorities.filter((p) => allActions.find((a) => a.id === p.id)?.action_type === 'restock'),
-      [priorities, allActions],
-  )
+  const priceActions = priorities // brief cuma isi discount + review_menu sekarang
 
-  const expiryActions = useMemo(
-      () => priorities.filter((p) => allActions.find((a) => a.id === p.id)?.action_type === 'expiry_alert'),
-      [priorities, allActions],
-  )
+  const restockActions = useMemo(() => lowStock.map(mapRestockItem), [lowStock])
+  const expiryActions = useMemo(() => expiringSoon.map(mapExpiryItem), [expiringSoon])
 
-  const historyItems = useMemo(() => {
-    return allActions
-        .filter((a) => a.status === 'acted')
-        .sort((a, b) => new Date(b.acted_at) - new Date(a.acted_at))
-        .slice(0, 5)
-        .map(mapHistoryItem)
-  }, [allActions])
+  const historyItems = useMemo(() => historyRaw.map(mapHistoryItem), [historyRaw])
 
   const totalActions = allActions.length
   const handledCount = allActions.filter((a) => a.status === 'acted').length
-  const openCount = priorities.length
-  const total = priorities.length
-  const listStatus =
-      status === 'loading' ? 'loading' : status === 'error' ? 'error' : total === 0 ? 'empty' : 'loaded'
+  const openCount = priceActions.length + restockActions.length + expiryActions.length
 
   const trendPct =
       salesToday.prevRevenue != null && salesToday.prevRevenue > 0
@@ -697,7 +593,7 @@ const today = new Date().toISOString().split('T')[0]
     try {
       await api.patch(`/briefs/actions/${id}/`, { status: newStatus })
       await refreshBrief()
-      if (detailsId === id) setDetailsId(null)
+      await loadHistory()
       showToast(toastMsg)
     } catch (err) {
       showToast('Gagal update aksi.')
@@ -715,20 +611,6 @@ const today = new Date().toISOString().split('T')[0]
   function goToAction(p) {
     if (onNavigate && p.gotoPage) onNavigate(p.gotoPage, p.refId)
   }
-
-  function openDetails(id) {
-    setDetailsId(id)
-    setDetailsLoading(true)
-    setTimeout(() => setDetailsLoading(false), 300)
-  }
-
-  function handleDetailsPrimary(p) {
-    setDetailsId(null)
-    if (onNavigate && p.gotoPage) onNavigate(p.gotoPage, p.refId)
-    else togglePriority(p.id)
-  }
-
-  const activePriority = priorities.find((p) => p.id === detailsId) || null
 
   return (
       <div
@@ -835,24 +717,29 @@ const today = new Date().toISOString().split('T')[0]
             </h2>
             <button
                 type="button"
-                onClick={regenerateBrief}
-                disabled={regenerating}
+                onClick={generateBrief}
+                disabled={regenerating || !canGenerateNow}
+                title={!canGenerateNow && nextGenerateAt ? `Bisa lagi setelah ${fmtDateTime(nextGenerateAt)}` : undefined}
                 className="text-xs font-semibold text-[#28579C] hover:text-[#1E4278] disabled:opacity-50"
             >
-              {regenerating ? 'Regenerating…' : 'Regenerate'}
+              {regenerating
+                  ? 'Generating…'
+                  : !canGenerateNow
+                      ? <Countdown target={nextGenerateAt} />
+                      : 'Regenerate'}
             </button>
           </div>
 
-          {listStatus === 'loading' && (
+          {status === 'loading' && (
               <div className="space-y-2.5" aria-hidden="true">
                 <SkeletonPriority />
                 <SkeletonPriority wide />
               </div>
           )}
 
-          {listStatus === 'error' && (
+          {status === 'error' && (
               <div className={`rounded-xl bg-white px-5 py-6 text-center ${SHADOW_CARD}`}>
-                <p className="text-sm font-semibold text-[#18233D]">Couldn't load today's brief.</p>
+                <p className="text-sm font-semibold text-[#18233D]">Couldn't load today's data.</p>
                 <p className="text-sm text-[#5B6B82] mt-1">Check your connection and try again.</p>
                 <button
                     type="button"
@@ -864,33 +751,10 @@ const today = new Date().toISOString().split('T')[0]
               </div>
           )}
 
-          {listStatus === 'empty' && (
-              <div className={`rounded-xl bg-white px-5 py-6 text-center ${SHADOW_CARD}`}>
-                <p className="text-sm font-semibold text-[#18233D]">
-                  {brief ? 'Nothing urgent today.' : "Today's brief hasn't been generated yet."}
-                </p>
-                <p className="text-sm text-[#5B6B82] mt-1">
-                  {brief
-                      ? 'Stokita will surface new priorities here as soon as something needs your attention.'
-                      : 'Generate it to see AI-ranked priorities for today.'}
-                </p>
-                {!brief && (
-                    <button
-                        type="button"
-                        onClick={generateBrief}
-                        disabled={regenerating}
-                        className="mt-3 text-sm font-semibold text-white bg-[#28579C] hover:bg-[#1E4278] transition-colors rounded-full px-4 py-2 disabled:opacity-50"
-                    >
-                      {regenerating ? 'Generating…' : "Generate today's brief"}
-                    </button>
-                )}
-              </div>
-          )}
-
-          {listStatus === 'loaded' && (
+          {status === 'ready' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-start">
-                
-                {/* KOLOM KIRI: Review Menu & Discount + History */}
+
+                {/* KOLOM KIRI: Review Menu & Discount (brief, 24h cooldown) + History */}
                 <div className="space-y-8">
                   <section aria-labelledby="price-heading">
                     <p id="price-heading" className="text-xs font-semibold text-[#8B96A6] uppercase tracking-wide mb-3">
@@ -899,11 +763,34 @@ const today = new Date().toISOString().split('T')[0]
                     {priceActions.length > 0 ? (
                         <div className="space-y-2.5">
                           {priceActions.map((p) => (
-                              <ReviewCard key={p.id} p={p} onToggle={togglePriority} onDetails={openDetails} />
+                              <ReviewCard key={p.id} p={p} onToggle={togglePriority} onDismiss={dismissPriority} />
                           ))}
                         </div>
                     ) : (
-                        <p className="text-sm text-[#8B96A6]">No price or discount actions needed.</p>
+                        <div className={`rounded-xl bg-white px-5 py-6 text-center ${SHADOW_CARD}`}>
+                          <p className="text-sm font-semibold text-[#18233D]">
+                            {brief ? 'Nothing urgent today.' : "Today's brief hasn't been generated yet."}
+                          </p>
+                          <p className="text-sm text-[#5B6B82] mt-1">
+                            {brief
+                                ? 'Stokita will surface new price/discount actions here as soon as something needs your attention.'
+                                : 'Generate it to see AI-ranked pricing recommendations for today.'}
+                          </p>
+                          {!brief && (
+                              <button
+                                  type="button"
+                                  onClick={generateBrief}
+                                  disabled={regenerating || !canGenerateNow}
+                                  className="mt-3 text-sm font-semibold text-white bg-[#28579C] hover:bg-[#1E4278] transition-colors rounded-full px-4 py-2 disabled:opacity-50"
+                              >
+                                {regenerating
+                                    ? 'Generating…'
+                                    : !canGenerateNow
+                                        ? <Countdown target={nextGenerateAt} />
+                                        : "Generate today's brief"}
+                              </button>
+                          )}
+                        </div>
                     )}
                   </section>
 
@@ -919,7 +806,7 @@ const today = new Date().toISOString().split('T')[0]
                   </section>
                 </div>
 
-                {/* KOLOM KANAN: Stock (Needs Restock) & Expiry */}
+                {/* KOLOM KANAN: Stock (Needs Restock) & Expiry — LIVE, bukan bagian brief, gak kena cooldown */}
                 <div className="space-y-8">
                   <section aria-labelledby="stock-heading">
                     <div className="flex items-center justify-between mb-3">
@@ -966,14 +853,6 @@ const today = new Date().toISOString().split('T')[0]
           )}
         </div>
 
-        <DetailsPanel
-            open={detailsId !== null}
-            loading={detailsLoading}
-            priority={activePriority}
-            onClose={() => setDetailsId(null)}
-            onPrimary={handleDetailsPrimary}
-            onDismiss={dismissPriority}
-        />
 
         <Toast message={toast} />
       </div>
