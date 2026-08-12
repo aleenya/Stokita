@@ -116,28 +116,30 @@ export default function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
 
   if (pendingApproval) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#FAF6EC] px-4 py-12 font-[Inter,sans-serif]">
+      <div
+        className="min-h-screen flex items-center justify-center bg-[#F7F5F0] px-4 py-12 antialiased"
+        style={{
+          fontFamily:
+            "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+        }}
+      >
         <div className="w-full max-w-md text-center">
           <div className="flex items-center gap-2 mb-8 justify-center">
-            <div className="w-2 h-2 rounded-full bg-[#E2A33D]" />
-            <span className="text-sm tracking-[0.2em] uppercase text-[#5C6B62] font-[IBM_Plex_Mono,monospace]">
+            <div className="w-2 h-2 rounded-full bg-[#28579C]" />
+            <span className="text-sm tracking-[0.2em] uppercase text-[#8B96A6] font-bold">
               Stokita
             </span>
           </div>
 
-          <h1 className="font-[Fraunces,serif] font-semibold text-2xl text-[#1F2A24] mb-3">
+          <h1 className="text-2xl font-extrabold tracking-tight text-[#18233D] mb-3">
             Account created
           </h1>
-          <p className="text-sm text-[#5C6B62] mb-8">
+          <p className="text-sm text-[#5B6B82] mb-8">
             Your account is waiting for your business owner to activate it under People.
             You'll be able to sign in once they do.
           </p>
 
-          <button
-            type="button"
-            onClick={onSwitchToLogin}
-            className="w-full bg-[#16211B] text-[#F3EFE4] rounded-md py-2.5 font-medium tracking-wide hover:bg-[#1D2B23] transition"
-          >
+          <button type="button" onClick={onSwitchToLogin} className={BTN_PRIMARY}>
             Back to sign in
           </button>
         </div>
@@ -246,7 +248,7 @@ export default function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
                   className={`${INPUT} text-sm`}
                   placeholder="bu-rinis-cloud-kitchen"
                 />
-                <p className="text-xs text-[#8A8377] mt-1.5">
+                <p className="text-xs text-[#8B96A6] mt-1.5">
                   We'll add a random string to the end for security, so the final code won't be guessable.
                   You'll find the full code under People after signing up.
                 </p>
