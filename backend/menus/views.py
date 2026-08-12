@@ -3,7 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from inventory.models import Ingredient
 from .models import Menu, MenuRecipe
-from .serializers import MenuSerializer
+from .serializers import MenuSerializer, RecipeLineInputSerializer
 from rest_framework.permissions import IsAuthenticated
 from accounts.permissions import IsOwner
 from accounts.permissions import feature_required
@@ -28,7 +28,10 @@ class MenuViewSet(viewsets.ModelViewSet):
     def recipe(self, request, pk=None):
         """Replace the whole recipe line set for this menu."""
         menu = self.get_object()
-        lines = request.data.get("lines", [])
+
+        line_serializer = RecipeLineInputSerializer(data=request.data.get("lines", []), many=True)
+        line_serializer.is_valid(raise_exception=True)
+        lines = line_serializer.validated_data
 
         ingredient_ids = [line["ingredient_id"] for line in lines]
         owned_ids = set(
@@ -36,7 +39,7 @@ class MenuViewSet(viewsets.ModelViewSet):
                 id__in=ingredient_ids, business=request.user.business
             ).values_list("id", flat=True)
         )
-        foreign_ids = [str(i) for i in ingredient_ids if str(i) not in {str(o) for o in owned_ids}]
+        foreign_ids = [str(i) for i in ingredient_ids if i not in owned_ids]
         if foreign_ids:
             return Response(
                 {"error": f"Ingredient(s) not found in your business: {foreign_ids}"},
