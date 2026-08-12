@@ -1,6 +1,26 @@
 import { useState, useEffect } from 'react'
 import api from '../api/client'
 
+/* =========================================================================
+   DESIGN TOKENS — sama persis dengan Dashboard.jsx / Sidebar.jsx, biar
+   semua halaman kepake satu bahasa visual (lihat Dashboard.jsx untuk map
+   warna lengkap: bg #F7F5F0 · navy #18233D · slate #5B6B82/#8B96A6 ·
+   brand #28579C/#1E4278/#EAF1FB · success #2E7D53 · warning #A2670C ·
+   critical #B8433B).
+   ========================================================================= */
+const SHADOW_CARD =
+  'shadow-[0_2px_6px_rgba(24,35,61,0.06),0_10px_24px_-8px_rgba(24,35,61,0.22)]'
+
+const LABEL = 'block text-xs uppercase tracking-wide text-[#8B96A6] mb-1.5'
+const INPUT =
+  'border border-[#E4E2DC] rounded-md px-3 py-2 text-sm text-[#18233D] placeholder:text-[#8B96A6] focus:outline-none focus:ring-2 focus:ring-[#28579C]/25 focus:border-[#28579C] transition-colors'
+const BTN_PRIMARY =
+  'text-sm font-semibold text-white bg-[#28579C] hover:bg-[#1E4278] transition-colors rounded-full px-5 py-2.5 disabled:opacity-50'
+const LINK_BRAND = 'text-xs font-semibold text-[#28579C] hover:text-[#1E4278] disabled:opacity-50 whitespace-nowrap'
+const LINK_SUCCESS = 'text-xs font-semibold text-[#2E7D53] hover:text-[#1F6644]'
+const LINK_MUTED = 'text-xs font-semibold text-[#8B96A6] hover:text-[#18233D]'
+const LINK_CRITICAL = 'text-xs font-semibold text-[#B8433B] hover:text-[#8F332C]'
+
 const UNIT_OPTIONS = ['kg', 'g', 'liter', 'ml', 'pcs', 'pack', 'box', 'dozen']
 
 export default function IngredientsPage() {
@@ -214,295 +234,310 @@ export default function IngredientsPage() {
 
   return (
     <div className="max-w-4xl">
-      <h1 className="font-[Fraunces,serif] text-2xl text-[#1F2A24] mb-6">Ingredients</h1>
+      <h1 className="text-[22px] font-extrabold tracking-tight text-[#18233D] mb-1">Ingredients</h1>
+      <p className="text-sm text-[#5B6B82] mb-6">Track stock levels, cost per unit, and restock as it happens.</p>
 
       {/* Create form */}
-      <form onSubmit={handleCreate} className="bg-white border border-[#D8D0BF] rounded-md p-4 mb-8 flex flex-wrap gap-3 items-end">
-        <div>
-          <label className="block text-xs uppercase text-[#5C6B62] mb-1">Name</label>
-          <input
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="border border-[#D8D0BF] rounded-md px-3 py-2 text-sm"
-            placeholder="Chicken breast"
-            required
-          />
-        </div>
-        <div>
-          <label className="block text-xs uppercase text-[#5C6B62] mb-1">Unit</label>
-          <select
-            value={form.unit}
-            onChange={(e) => setForm({ ...form, unit: e.target.value })}
-            className="border border-[#D8D0BF] rounded-md px-3 py-2 text-sm w-24"
-          >
-            {UNIT_OPTIONS.map((u) => (
-              <option key={u} value={u}>{u}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs uppercase text-[#5C6B62] mb-1">Initial stock</label>
-          <input
-            type="number" step="0.001"
-            value={form.current_stock}
-            onChange={(e) => setForm({ ...form, current_stock: e.target.value })}
-            className="border border-[#D8D0BF] rounded-md px-3 py-2 text-sm w-24"
-            placeholder="0"
-          />
-        </div>
-        <div>
-          <label className="block text-xs uppercase text-[#5C6B62] mb-1">Total cost</label>
-          <input
-            type="number" step="0.01"
-            value={form.total_cost}
-            onChange={(e) => setForm({ ...form, total_cost: e.target.value })}
-            className="border border-[#D8D0BF] rounded-md px-3 py-2 text-sm w-28"
-            placeholder="e.g. 150000"
-            required
-          />
-          {form.current_stock > 0 && form.total_cost > 0 && (
-            <p className="text-xs text-[#5C6B62] mt-1">
-              ≈ {(Number(form.total_cost) / Number(form.current_stock)).toFixed(2)} / {form.unit}
-            </p>
-          )}
-        </div>
-        <div>
-          <label className="block text-xs uppercase text-[#5C6B62] mb-1">Low stock threshold</label>
-          <input
-            type="number" step="0.001"
-            value={form.low_stock_threshold}
-            onChange={(e) => setForm({ ...form, low_stock_threshold: e.target.value })}
-            className="border border-[#D8D0BF] rounded-md px-3 py-2 text-sm w-28"
-            placeholder="min. qty"
-          />
-        </div>
-        <div>
-          <label className="block text-xs uppercase text-[#5C6B62] mb-1">Expiry date</label>
-          <div className="flex gap-2 items-center">
+      <section className="mb-8">
+        <h2 className="text-[13px] font-bold text-[#18233D] uppercase tracking-wide mb-3">Add Ingredient</h2>
+        <form
+          onSubmit={handleCreate}
+          className={`bg-white rounded-xl ${SHADOW_CARD} p-5 flex flex-wrap gap-4 items-end`}
+        >
+          <div>
+            <label className={LABEL}>Name</label>
             <input
-              type="date"
-              value={form.expiry_date}
-              onChange={(e) => setForm({ ...form, expiry_date: e.target.value })}
-              className="border border-[#D8D0BF] rounded-md px-3 py-2 text-sm"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              className={INPUT}
+              placeholder="Chicken breast"
+              required
             />
-            <button
-              type="button"
-              onClick={handleGenerateExpiryForCreate}
-              disabled={!form.name || form.aiLoading}
-              className="text-[#8B6E5C] text-xs font-medium hover:underline disabled:opacity-50 whitespace-nowrap"
-            >
-              {form.aiLoading ? 'Generating...' : '✨ AI expiry'}
-            </button>
           </div>
-        </div>
-        <button type="submit" className="bg-[#16211B] text-[#F3EFE4] rounded-md px-4 py-2 text-sm">
-          Add Ingredient
-        </button>
-        {form.aiNote && (
-          <p className="basis-full text-xs text-[#5C6B62]">{form.aiNote}</p>
-        )}
-      </form>
+          <div>
+            <label className={LABEL}>Unit</label>
+            <select
+              value={form.unit}
+              onChange={(e) => setForm({ ...form, unit: e.target.value })}
+              className={`${INPUT} w-24`}
+            >
+              {UNIT_OPTIONS.map((u) => (
+                <option key={u} value={u}>{u}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className={LABEL}>Initial stock</label>
+            <input
+              type="number" step="0.001"
+              value={form.current_stock}
+              onChange={(e) => setForm({ ...form, current_stock: e.target.value })}
+              className={`${INPUT} w-24`}
+              placeholder="0"
+            />
+          </div>
+          <div>
+            <label className={LABEL}>Total cost</label>
+            <input
+              type="number" step="0.01"
+              value={form.total_cost}
+              onChange={(e) => setForm({ ...form, total_cost: e.target.value })}
+              className={`${INPUT} w-28`}
+              placeholder="e.g. 150000"
+              required
+            />
+            {form.current_stock > 0 && form.total_cost > 0 && (
+              <p className="text-xs text-[#8B96A6] mt-1">
+                ≈ {(Number(form.total_cost) / Number(form.current_stock)).toFixed(2)} / {form.unit}
+              </p>
+            )}
+          </div>
+          <div>
+            <label className={LABEL}>Low stock threshold</label>
+            <input
+              type="number" step="0.001"
+              value={form.low_stock_threshold}
+              onChange={(e) => setForm({ ...form, low_stock_threshold: e.target.value })}
+              className={`${INPUT} w-28`}
+              placeholder="min. qty"
+            />
+          </div>
+          <div>
+            <label className={LABEL}>Expiry date</label>
+            <div className="flex gap-2 items-center">
+              <input
+                type="date"
+                value={form.expiry_date}
+                onChange={(e) => setForm({ ...form, expiry_date: e.target.value })}
+                className={INPUT}
+              />
+              <button
+                type="button"
+                onClick={handleGenerateExpiryForCreate}
+                disabled={!form.name || form.aiLoading}
+                className={LINK_BRAND}
+              >
+                {form.aiLoading ? 'Generating...' : '✨ AI expiry'}
+              </button>
+            </div>
+          </div>
+          <button type="submit" className={BTN_PRIMARY}>
+            Add Ingredient
+          </button>
+          {form.aiNote && (
+            <p className="basis-full text-xs text-[#8B96A6]">{form.aiNote}</p>
+          )}
+        </form>
+      </section>
 
-      {error && <p className="text-sm text-[#C1443B] mb-4">{error}</p>}
+      {error && <p className="text-sm text-[#B8433B] mb-4">{error}</p>}
 
       {/* List + per-row restock (tests: restock, estimate-expiry) + inline edit */}
-      {loading ? (
-        <p className="text-sm text-[#5C6B62]">Loading...</p>
-      ) : (
-        <table className="w-full text-sm bg-white border border-[#D8D0BF] rounded-md overflow-hidden mb-8">
-          <thead className="bg-[#FAF6EC] text-[#5C6B62] text-xs uppercase">
-            <tr>
-              <th className="text-left px-4 py-2">Name</th>
-              <th className="text-left px-4 py-2">Stock</th>
-              <th className="text-left px-4 py-2">Cost/unit</th>
-              <th className="text-left px-4 py-2">Restock</th>
-              <th className="text-left px-4 py-2">Edit</th>
-            </tr>
-          </thead>
-          <tbody>
-            {ingredients.map((ing) => {
-              const row = restockState[ing.id] || {}
-              const isEditing = editingId === ing.id
-              return (
-                <tr key={ing.id} className="border-t border-[#D8D0BF] align-top">
-                  {isEditing ? (
-                    <>
-                      <td className="px-4 py-2">
-                        <input
-                          value={editForm.name}
-                          onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                          className="border border-[#D8D0BF] rounded-md px-2 py-1 text-sm w-full"
-                        />
-                      </td>
-                      <td className="px-4 py-2 text-xs text-[#5C6B62]">{ing.current_stock} {ing.unit} (locked)</td>
-                      <td className="px-4 py-2">
-                        <input
-                          type="number" step="0.01"
-                          value={editForm.cost_per_unit}
-                          onChange={(e) => setEditForm({ ...editForm, cost_per_unit: e.target.value })}
-                          className="border border-[#D8D0BF] rounded-md px-2 py-1 text-sm w-24"
-                        />
-                      </td>
-                      <td className="px-4 py-2 text-xs text-[#5C6B62]">—</td>
-                      <td className="px-4 py-2 flex gap-2">
-                        <button onClick={() => saveEdit(ing.id)} className="text-[#5C8B6E] text-xs font-medium hover:underline">
-                          Save
-                        </button>
-                        <button onClick={() => setEditingId(null)} className="text-[#5C6B62] text-xs">
-                          Cancel
-                        </button>
-                      </td>
-                    </>
-                  ) : (
-                    <>
-                      <td className="px-4 py-2">{ing.name}</td>
-                      <td className="px-4 py-2">{ing.current_stock} {ing.unit}</td>
-                      <td className="px-4 py-2">{ing.cost_per_unit}</td>
-                      <td className="px-4 py-2">
-                        <div className="flex flex-wrap gap-2 items-center">
-                          <input
-                            type="number" step="0.001"
-                            value={row.qty || ''}
-                            onChange={(e) => updateRestockRow(ing.id, { qty: e.target.value })}
-                            className="border border-[#D8D0BF] rounded-md px-2 py-1 w-20 text-sm"
-                            placeholder="qty"
-                          />
-                          <input
-                            type="date"
-                            value={row.expiry_date || ''}
-                            onChange={(e) => updateRestockRow(ing.id, { expiry_date: e.target.value })}
-                            className="border border-[#D8D0BF] rounded-md px-2 py-1 text-sm"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleGenerateExpiry(ing)}
-                            disabled={row.aiLoading}
-                            className="text-[#8B6E5C] text-xs font-medium hover:underline disabled:opacity-50"
-                          >
-                            {row.aiLoading ? 'Generating...' : '✨ AI expiry'}
-                          </button>
-                          <button
-                            onClick={() => handleRestock(ing.id)}
-                            className="text-[#5C8B6E] text-xs font-medium hover:underline"
-                          >
-                            Restock
-                          </button>
-                        </div>
-                        {row.aiNote && (
-                          <p className="text-xs text-[#5C6B62] mt-1">{row.aiNote}</p>
-                        )}
-                      </td>
-                      <td className="px-4 py-2">
-                        <button onClick={() => startEdit(ing)} className="text-[#E2A33D] text-xs font-medium hover:underline">
-                          Edit
-                        </button>
-                      </td>
-                    </>
-                  )}
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      )}
-
-      {/* Receipt upload (tests: parse-receipt, bulk-restock) */}
-      <div className="bg-white border border-[#D8D0BF] rounded-md p-4">
-        <h2 className="font-[Fraunces,serif] text-lg text-[#1F2A24] mb-3">Restock from Receipt</h2>
-
-        <form onSubmit={handleParseReceipt} className="flex flex-wrap gap-3 items-end mb-3">
-          <div>
-            <label className="block text-xs uppercase text-[#5C6B62] mb-1">Receipt photo</label>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => setReceiptFile(e.target.files[0] || null)}
-              className="text-sm"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={!receiptFile || receiptLoading}
-            className="bg-[#16211B] text-[#F3EFE4] rounded-md px-4 py-2 text-sm disabled:opacity-50"
-          >
-            {receiptLoading ? 'Reading receipt...' : 'Parse Receipt'}
-          </button>
-        </form>
-
-        {receiptError && <p className="text-sm text-[#C1443B] mb-3">{receiptError}</p>}
-
-        {receiptItems && receiptItems.length > 0 && (
-          <>
-            <table className="w-full text-sm border border-[#D8D0BF] rounded-md overflow-hidden mb-3">
-              <thead className="bg-[#FAF6EC] text-[#5C6B62] text-xs uppercase">
+      <section className="mb-8">
+        <h2 className="text-[13px] font-bold text-[#18233D] uppercase tracking-wide mb-3">Ingredient List</h2>
+        {loading ? (
+          <p className="text-sm text-[#5B6B82]">Loading...</p>
+        ) : (
+          <div className={`bg-white rounded-xl ${SHADOW_CARD} overflow-hidden`}>
+            <table className="w-full text-sm">
+              <thead className="bg-[#F7F5F0] text-[#8B96A6] text-xs uppercase tracking-wide">
                 <tr>
-                  <th className="text-left px-3 py-2">Name</th>
-                  <th className="text-left px-3 py-2">Qty</th>
-                  <th className="text-left px-3 py-2">Unit</th>
-                  <th className="text-left px-3 py-2">Expiry date</th>
-                  <th className="text-left px-3 py-2"></th>
+                  <th className="text-left px-4 py-3 font-bold">Name</th>
+                  <th className="text-left px-4 py-3 font-bold">Stock</th>
+                  <th className="text-left px-4 py-3 font-bold">Cost/unit</th>
+                  <th className="text-left px-4 py-3 font-bold">Restock</th>
+                  <th className="text-left px-4 py-3 font-bold">Edit</th>
                 </tr>
               </thead>
               <tbody>
-                {receiptItems.map((item, i) => (
-                  <tr key={i} className="border-t border-[#D8D0BF]">
-                    <td className="px-3 py-2">
-                      <input
-                        value={item.name}
-                        onChange={(e) => updateReceiptItem(i, { name: e.target.value })}
-                        className="border border-[#D8D0BF] rounded-md px-2 py-1 text-sm w-full"
-                      />
-                    </td>
-                    <td className="px-3 py-2">
-                      <input
-                        type="number" step="0.001"
-                        value={item.quantity}
-                        onChange={(e) => updateReceiptItem(i, { quantity: e.target.value })}
-                        className="border border-[#D8D0BF] rounded-md px-2 py-1 text-sm w-20"
-                      />
-                    </td>
-                    <td className="px-3 py-2">
-                      <input
-                        value={item.unit}
-                        onChange={(e) => updateReceiptItem(i, { unit: e.target.value })}
-                        className="border border-[#D8D0BF] rounded-md px-2 py-1 text-sm w-16"
-                      />
-                    </td>
-                    <td className="px-3 py-2">
-                      <input
-                        type="date"
-                        value={item.expiry_date}
-                        onChange={(e) => updateReceiptItem(i, { expiry_date: e.target.value })}
-                        className="border border-[#D8D0BF] rounded-md px-2 py-1 text-sm"
-                      />
-                    </td>
-                    <td className="px-3 py-2">
-                      <button
-                        type="button"
-                        onClick={() => removeReceiptItem(i)}
-                        className="text-[#C1443B] text-xs hover:underline"
-                      >
-                        Remove
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {ingredients.map((ing) => {
+                  const row = restockState[ing.id] || {}
+                  const isEditing = editingId === ing.id
+                  return (
+                    <tr key={ing.id} className="border-t border-[#E4E2DC] align-top">
+                      {isEditing ? (
+                        <>
+                          <td className="px-4 py-3">
+                            <input
+                              value={editForm.name}
+                              onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                              className={`${INPUT} w-full`}
+                            />
+                          </td>
+                          <td className="px-4 py-3 text-xs text-[#8B96A6]">{ing.current_stock} {ing.unit} (locked)</td>
+                          <td className="px-4 py-3">
+                            <input
+                              type="number" step="0.01"
+                              value={editForm.cost_per_unit}
+                              onChange={(e) => setEditForm({ ...editForm, cost_per_unit: e.target.value })}
+                              className={`${INPUT} w-24`}
+                            />
+                          </td>
+                          <td className="px-4 py-3 text-xs text-[#8B96A6]">—</td>
+                          <td className="px-4 py-3 flex gap-3">
+                            <button onClick={() => saveEdit(ing.id)} className={LINK_SUCCESS}>
+                              Save
+                            </button>
+                            <button onClick={() => setEditingId(null)} className={LINK_MUTED}>
+                              Cancel
+                            </button>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="px-4 py-3 text-[#18233D] font-medium">{ing.name}</td>
+                          <td className="px-4 py-3 text-[#18233D]">{ing.current_stock} {ing.unit}</td>
+                          <td className="px-4 py-3 text-[#18233D]">{ing.cost_per_unit}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-wrap gap-2 items-center">
+                              <input
+                                type="number" step="0.001"
+                                value={row.qty || ''}
+                                onChange={(e) => updateRestockRow(ing.id, { qty: e.target.value })}
+                                className={`${INPUT} w-20`}
+                                placeholder="qty"
+                              />
+                              <input
+                                type="date"
+                                value={row.expiry_date || ''}
+                                onChange={(e) => updateRestockRow(ing.id, { expiry_date: e.target.value })}
+                                className={INPUT}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleGenerateExpiry(ing)}
+                                disabled={row.aiLoading}
+                                className={LINK_BRAND}
+                              >
+                                {row.aiLoading ? 'Generating...' : '✨ AI expiry'}
+                              </button>
+                              <button
+                                onClick={() => handleRestock(ing.id)}
+                                className={LINK_SUCCESS}
+                              >
+                                Restock
+                              </button>
+                            </div>
+                            {row.aiNote && (
+                              <p className="text-xs text-[#8B96A6] mt-1">{row.aiNote}</p>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <button onClick={() => startEdit(ing)} className={LINK_BRAND}>
+                              Edit
+                            </button>
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
-            <button
-              onClick={handleBulkRestock}
-              disabled={bulkSubmitting}
-              className="bg-[#5C8B6E] text-[#F3EFE4] rounded-md px-4 py-2 text-sm disabled:opacity-50"
-            >
-              {bulkSubmitting ? 'Submitting...' : `Confirm & Restock ${receiptItems.length} item(s)`}
-            </button>
-          </>
+          </div>
         )}
+      </section>
 
-        {receiptItems && receiptItems.length === 0 && (
-          <p className="text-sm text-[#5C6B62]">Gak ada item terdeteksi dari struk ini.</p>
-        )}
-      </div>
+      {/* Receipt upload (tests: parse-receipt, bulk-restock) */}
+      <section>
+        <h2 className="text-[13px] font-bold text-[#18233D] uppercase tracking-wide mb-3">Restock from Receipt</h2>
+        <div className={`bg-white rounded-xl ${SHADOW_CARD} p-5`}>
+          <form onSubmit={handleParseReceipt} className="flex flex-wrap gap-4 items-end mb-4">
+            <div>
+              <label className={LABEL}>Receipt photo</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setReceiptFile(e.target.files[0] || null)}
+                className="text-sm text-[#5B6B82]"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={!receiptFile || receiptLoading}
+              className={BTN_PRIMARY}
+            >
+              {receiptLoading ? 'Reading receipt...' : 'Parse Receipt'}
+            </button>
+          </form>
+
+          {receiptError && <p className="text-sm text-[#B8433B] mb-4">{receiptError}</p>}
+
+          {receiptItems && receiptItems.length > 0 && (
+            <>
+              <div className={`rounded-lg border border-[#E4E2DC] overflow-hidden mb-4`}>
+                <table className="w-full text-sm">
+                  <thead className="bg-[#F7F5F0] text-[#8B96A6] text-xs uppercase tracking-wide">
+                    <tr>
+                      <th className="text-left px-3 py-2.5 font-bold">Name</th>
+                      <th className="text-left px-3 py-2.5 font-bold">Qty</th>
+                      <th className="text-left px-3 py-2.5 font-bold">Unit</th>
+                      <th className="text-left px-3 py-2.5 font-bold">Expiry date</th>
+                      <th className="text-left px-3 py-2.5"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {receiptItems.map((item, i) => (
+                      <tr key={i} className="border-t border-[#E4E2DC]">
+                        <td className="px-3 py-2">
+                          <input
+                            value={item.name}
+                            onChange={(e) => updateReceiptItem(i, { name: e.target.value })}
+                            className={`${INPUT} w-full`}
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="number" step="0.001"
+                            value={item.quantity}
+                            onChange={(e) => updateReceiptItem(i, { quantity: e.target.value })}
+                            className={`${INPUT} w-20`}
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            value={item.unit}
+                            onChange={(e) => updateReceiptItem(i, { unit: e.target.value })}
+                            className={`${INPUT} w-16`}
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="date"
+                            value={item.expiry_date}
+                            onChange={(e) => updateReceiptItem(i, { expiry_date: e.target.value })}
+                            className={INPUT}
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <button
+                            type="button"
+                            onClick={() => removeReceiptItem(i)}
+                            className={LINK_CRITICAL}
+                          >
+                            Remove
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <button
+                onClick={handleBulkRestock}
+                disabled={bulkSubmitting}
+                className={BTN_PRIMARY}
+              >
+                {bulkSubmitting ? 'Submitting...' : `Confirm & Restock ${receiptItems.length} item(s)`}
+              </button>
+            </>
+          )}
+
+          {receiptItems && receiptItems.length === 0 && (
+            <p className="text-sm text-[#5B6B82]">Gak ada item terdeteksi dari struk ini.</p>
+          )}
+        </div>
+      </section>
     </div>
   )
 }

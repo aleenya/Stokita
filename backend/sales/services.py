@@ -7,6 +7,16 @@ from menus.models import Menu
 from .models import Sale, SaleItem
 
 
+def classify_margin_state(margin_pct, target):
+    """Shared F3 threshold logic — used by both /analytics/profit (sales)
+    and the daily brief context builder (briefs), so they always agree."""
+    if margin_pct >= target:
+        return "high"
+    if margin_pct >= target * 0.6:
+        return "stable"
+    return "low"
+
+
 class InsufficientStockError(Exception):
     def __init__(self, ingredient_name, available, required):
         self.ingredient_name = ingredient_name

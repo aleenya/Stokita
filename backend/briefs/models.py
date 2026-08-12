@@ -72,4 +72,4 @@ class ActionImpactCheck(models.Model):
     class Meta:
         unique_together = ("action", "week_start") 
         ordering = ["-week_start"]
-        db_table = "action_impact_check"
+        db_table = "action_impact_checks"
