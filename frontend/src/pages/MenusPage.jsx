@@ -200,13 +200,21 @@ function MenuFormModal({ initial, onClose, onSaved }) {
       setError('Nama menu wajib diisi.')
       return
     }
+    if (form.sell_price === '' || Number(form.sell_price) <= 0) {
+      setError('Harga jual wajib diisi, lebih dari 0.')
+      return
+    }
+    if (form.target_margin === '') {
+      setError('Target margin wajib diisi.')
+      return
+    }
 
     setSaving(true)
     try {
       const payload = {
         name: form.name.trim(),
-        sell_price: form.sell_price === '' ? 0 : form.sell_price,
-        target_margin: form.target_margin === '' ? 0 : form.target_margin,
+        sell_price: form.sell_price,
+        target_margin: form.target_margin,
         is_active: form.is_active,
       }
       const res = isEdit
@@ -538,8 +546,8 @@ export default function MenusPage({ onLogout }) {
     try {
       const res = await api.patch(`/menus/${menu.id}/`, { is_active: !menu.is_active })
       setMenus((prev) => prev.map((m) => (m.id === menu.id ? res.data : m)))
-    } catch {
-      setError(`Gagal update status ${menu.name}.`)
+    } catch (err) {
+      setError(extractError(err) || `Gagal update status ${menu.name}.`)
     }
   }
 
@@ -549,8 +557,8 @@ export default function MenusPage({ onLogout }) {
     try {
       await api.delete(`/menus/${menu.id}/`)
       setMenus((prev) => prev.filter((m) => m.id !== menu.id))
-    } catch {
-      setError(`Gagal menghapus ${menu.name}.`)
+    } catch (err) {
+      setError(extractError(err) || `Gagal menghapus ${menu.name}.`)
     } finally {
       setDeletingId(null)
     }
