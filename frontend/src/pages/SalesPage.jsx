@@ -64,7 +64,7 @@ export default function SalesPage() {
       setSuccess('Sale recorded! Cek tab Ingredients, stock harusnya udah kepotong.')
       fetchAll()
     } catch (err) {
-      setError('Gagal record sale. Cek stock ingredient cukup & recipe menu udah diisi.')
+      setError(err.response?.data?.error || 'Gagal record sale. Cek stock ingredient cukup & recipe menu udah diisi.')
     }
   }
 

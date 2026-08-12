@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from menus.models import Menu
 from .models import Sale, SaleItem
 from .serializers import SaleSerializer
-from .services import record_sale
+from .services import record_sale, InsufficientStockError
 from rest_framework.permissions import IsAuthenticated
 from accounts.permissions import IsOwner
 from accounts.permissions import feature_required
@@ -13,7 +13,12 @@ from accounts.permissions import feature_required
  
 class SaleViewSet(viewsets.ModelViewSet):
     serializer_class = SaleSerializer
- 
+
+    def get_permissions(self):
+        if self.action in ["update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsOwner()]
+        return [IsAuthenticated()]
+
     def get_queryset(self):
         qs = Sale.objects.filter(business=self.request.user.business)
         date = self.request.query_params.get("date")
@@ -22,12 +27,17 @@ class SaleViewSet(viewsets.ModelViewSet):
         return qs
  
     def create(self, request):
-        sale = record_sale(
-            business=request.user.business,
-            user=request.user,
-            sale_date=request.data["sale_date"],
-            items=request.data["items"],
-        )
+        try:
+            sale = record_sale(
+                business=request.user.business,
+                user=request.user,
+                sale_date=request.data["sale_date"],
+                items=request.data["items"],
+            )
+        except InsufficientStockError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Menu.DoesNotExist:
+            return Response({"error": "Menu gak ditemukan."}, status=status.HTTP_400_BAD_REQUEST)
         return Response(SaleSerializer(sale).data, status=status.HTTP_201_CREATED)
  
  
