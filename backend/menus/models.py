@@ -17,9 +17,17 @@ class Menu(models.Model):
         db_table = "menus"
 
     def unit_cost(self):
-        """Sum of (ingredient cost x qty per serving) across the recipe."""
+        """Sum of (ingredient cost x qty per serving) across the recipe.
+        Reuses the prefetch cache when the caller did
+        .prefetch_related('recipe_lines__ingredient') (list views) so this
+        doesn't re-query per menu; falls back to one select_related query
+        for standalone lookups (e.g. mid-transaction in record_sale)."""
+        if "recipe_lines" in getattr(self, "_prefetched_objects_cache", {}):
+            lines = self.recipe_lines.all()
+        else:
+            lines = self.recipe_lines.select_related("ingredient")
         total = 0
-        for line in self.recipe_lines.select_related("ingredient"):
+        for line in lines:
             total += line.ingredient.cost_per_unit * line.qty_per_serving
         return total
 

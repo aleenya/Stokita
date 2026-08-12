@@ -3,9 +3,8 @@ from datetime import date, timedelta
 
 from django.db.models import F, DecimalField, ExpressionWrapper, Sum
 from inventory.models import Ingredient, StockMovement
-from menus.models import Menu
 from sales.models import SaleItem
-from sales.services import classify_margin_state
+from sales.services import compute_menu_profit_states
 from .models import DailyBrief, BriefAction, ActionImpactCheck
 from .ai import generate_recommendations, analyze_impact
 from django.utils import timezone
@@ -121,7 +120,9 @@ def _capture_snapshot(action):
         })
 
     if action.related_ingredient_id:
-        ing = Ingredient.objects.filter(id=action.related_ingredient_id).first()
+        ing = Ingredient.objects.filter(
+            id=action.related_ingredient_id, business=action.brief.business
+        ).first()
         if ing:
             snapshot["ingredient_current_stock"] = float(ing.current_stock)
 

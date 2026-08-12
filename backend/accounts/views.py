@@ -24,6 +24,7 @@ class RegisterView(APIView):
             {
                 "token": token.key,
                 "role": user.role,
+                "is_active": user.is_active,
                 "business": BusinessSerializer(user.business).data,
             },
             status=status.HTTP_201_CREATED,
@@ -43,7 +44,9 @@ class StaffViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated, IsOwner]
 
     def list(self, request):
-        staff = User.objects.filter(business=request.user.business, role=User.STAFF)
+        staff = User.objects.filter(
+            business=request.user.business, role=User.STAFF
+        ).prefetch_related("feature_grants")
         return Response(StaffSerializer(staff, many=True).data)
 
     @action(detail=True, methods=["put"])
