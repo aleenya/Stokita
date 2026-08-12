@@ -4,22 +4,6 @@ import api from '../api/client'
 /* =========================================================================
    DESIGN TOKENS
    Warna diambil persis dari tailwind.config di dashboard(2).html.
-   Sengaja ditulis sebagai arbitrary value (bg-[#F7F5F0]) supaya file ini
-   jalan tanpa perlu ngubah tailwind.config dulu.
-
-   Kalau nanti mau dirapihin, tinggal pindahin map di bawah ke
-   tailwind.config.js -> theme.extend.colors, lalu ganti class-nya:
-     bg      #F7F5F0   surface #FFFFFF
-     border  #E4E2DC   border-strong #CBD1DB
-     navy    #18233D   navy-50 #EEF2F8
-     slate   #5B6B82   slate-muted #8B96A6
-     brand   #28579C   brand-dark #1E4278   brand-light #EAF1FB
-     gold    #C68A34   gold-text #8A5A17
-     success #2E7D53 / #EAF5EE
-     warning #A2670C / #FCF3E2
-     critical #B8433B / #FBEBEA
-     teal    #2A7A82 / #E8F4F5
-   Font: Plus Jakarta Sans (pastikan <link> Google Fonts ada di index.html)
    ========================================================================= */
 
 const SHADOW_CARD =
@@ -61,11 +45,6 @@ const num = (v) => (v === null || v === undefined || v === '' ? 0 : Number(v))
 
 /* =========================================================================
    DERIVED LOGIC
-   "Today's Priorities" is sourced straight from the backend's daily brief
-   (F5/F6 — GET /briefs/today/, AI-ranked via Gemini) instead of being
-   recomputed client-side. mapBriefAction() just reshapes one brief_action
-   into the card/detail-panel shape the presentational components below
-   already expect.
    ========================================================================= */
 
 function actionDestination(actionType) {
@@ -75,31 +54,70 @@ function actionDestination(actionType) {
   return { label: 'Go to Menus', page: 'menus' }
 }
 
+function isCheckable(actionType) {
+  return actionType === 'review_menu' || actionType === 'discount'
+}
+
+// Fungsi pintar untuk mengekstrak nama dari pesan AI tanpa redundant
+function getActionTitle(a) {
+  let itemName = a.item_name || a.menu_name || a.ingredient_name || a.target_name;
+
+  if (!itemName && a.message) {
+    let text = a.message.trim();
+    
+    // 1. Buang kata "Restock " di awal kalimat biar ga double ("Restock Restock...")
+    text = text.replace(/^restock\s+/i, '');
+    
+    // 2. Ambil kata sebelum ketemu kata-kata keterangan atau tanda baca
+    const match = text.match(/^(.+?)(?:\s+(?:immediately|as|because|since|current|has|is|margin|expires|needs|terlalu|hampir|akan|sisa|tinggal)\b|;|,|\.)/i);
+    
+    if (match) {
+      itemName = match[1].trim();
+    } else {
+      itemName = text.split(' ').slice(0, 3).join(' '); // Fallback ambil 3 kata pertama aja
+    }
+  }
+
+  if (!itemName) itemName = "Item";
+
+  // Bersihin kalau ada tanda baca nyangkut di akhir kata
+  itemName = itemName.replace(/[^a-zA-Z0-9]+$/, '').trim();
+
+  switch (a.action_type) {
+    case 'restock': 
+      return `Restock ${itemName}`
+    case 'review_menu': 
+      return `Review Harga ${itemName}`
+    case 'expiry_alert': 
+      return `Cek Expired ${itemName}`
+    case 'discount': 
+      return `Review Diskon ${itemName}`
+    default: 
+      return a.title || a.message
+  }
+}
+
 function mapBriefAction(a) {
-  const impact = num(a.rupiah_impact)
   const dest = actionDestination(a.action_type)
   const typeLabel = String(a.action_type || '').replace(/_/g, ' ')
+  const checkable = isCheckable(a.action_type)
 
   return {
     id: a.id,
     kind: 'brief',
     refId: a.id,
-    title: a.message,
-    summary: `${typeLabel} · estimated impact ${rupiah(impact)}`,
+    title: getActionTitle(a),
+    summary: a.message,       
     badge: {
-      label: a.action_type === 'expiry_alert' ? 'Urgent' : `${rupiah(impact)} impact`,
+      label: a.action_type === 'expiry_alert' ? 'Urgent' : `Action Needed`,
       tone: a.action_type === 'expiry_alert' ? 'critical' : 'warning',
     },
-    actionLabel: 'View details',
+    checkable,
+    actionLabel: checkable ? 'View details' : dest.label,
     recommendation: a.message,
     reasoning: a.message,
-    signals: [`Action type: ${typeLabel}`, `Estimated impact: ${rupiah(impact)}`],
+    signals: [`Action type: ${typeLabel}`],
     suggestedAction: a.message,
-    expectedImpact: impact
-        ? `Estimated impact of acting on this is about ${rupiah(impact)}.`
-        : 'Impact not estimated for this action.',
-    metricLabel: 'Estimated impact',
-    metricValue: rupiah(impact),
     gotoLabel: dest.label,
     gotoPage: dest.page,
   }
@@ -108,15 +126,10 @@ function mapBriefAction(a) {
 function mapHistoryItem(a) {
   return {
     id: a.id,
-    title: a.message,
+    title: getActionTitle(a),
+    summary: a.message,
     kind: 'brief',
     actionTakenAt: a.acted_at,
-    before: null,
-    after: null,
-    // F7 impact-check results (positive/negative/…) aren't joined in here
-    // yet — GET /briefs/today/ doesn't include them. Once wired to
-    // /briefs/impact-history/, matching entries can flip this to 'observed'.
-    status: 'pending',
   }
 }
 
@@ -174,40 +187,52 @@ function SkeletonPriority({ wide }) {
   )
 }
 
-function PriorityCard({ p, onToggle, onDetails }) {
+function PriorityCard({ p, onToggle, onDetails, onGoto }) {
   return (
       <div
           className={`group flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 rounded-xl bg-white px-4 sm:px-5 py-4 ${SHADOW_CARD} ${SHADOW_CARD_HOVER} transition-shadow`}
       >
         <div className="flex items-start gap-4">
-          <button
-              type="button"
-              role="checkbox"
-              aria-checked={p.completed}
-              aria-label={`Mark ${p.title} as handled`}
-              onClick={() => onToggle(p.id)}
-              className={`w-5 h-5 mt-0.5 sm:mt-0 rounded-full border-2 shrink-0 transition-colors flex items-center justify-center ${
-                  p.completed
-                      ? 'bg-[#2E7D53] border-[#2E7D53]'
-                      : 'border-[#CBD1DB] hover:border-[#28579C]'
-              }`}
-          >
-            {p.completed && (
-                <svg
-                    className="w-3 h-3 text-white"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                >
-                  <path d="M20 6 9 17l-5-5" />
-                </svg>
-            )}
-          </button>
-          {/* mobile: judul nempel di sebelah checkbox */}
+          {p.checkable ? (
+              <button
+                  type="button"
+                  role="checkbox"
+                  aria-checked={p.completed}
+                  aria-label={`Mark ${p.title} as handled`}
+                  onClick={() => onToggle(p.id)}
+                  className={`w-5 h-5 mt-0.5 sm:mt-0 rounded-full border-2 shrink-0 transition-colors flex items-center justify-center ${
+                      p.completed
+                          ? 'bg-[#2E7D53] border-[#2E7D53]'
+                          : 'border-[#CBD1DB] hover:border-[#28579C]'
+                  }`}
+              >
+                {p.completed && (
+                    <svg
+                        className="w-3 h-3 text-white"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                    >
+                      <path d="M20 6 9 17l-5-5" />
+                    </svg>
+                )}
+              </button>
+          ) : (
+              <span
+                  aria-hidden="true"
+                  className={`w-5 h-5 mt-0.5 sm:mt-0 rounded-full shrink-0 flex items-center justify-center ${
+                      p.badge.tone === 'critical' ? 'bg-[#FBEBEA] text-[#B8433B]' : 'bg-[#FCF3E2] text-[#A2670C]'
+                  }`}
+              >
+              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 2 1 21h22L12 2zm0 6 6.5 11h-13L12 8zm-.9 3v4h1.8v-4h-1.8zm0 5.2v1.8h1.8v-1.8h-1.8z" />
+              </svg>
+            </span>
+          )}
           <div className="flex-1 min-w-0 sm:hidden">
             <p
                 className={`text-[15px] font-semibold ${
@@ -220,7 +245,6 @@ function PriorityCard({ p, onToggle, onDetails }) {
           </div>
         </div>
 
-        {/* desktop: judul jadi kolom tengah */}
         <div className="hidden sm:block flex-1 min-w-0">
           <p
               className={`text-[15px] font-semibold ${
@@ -229,7 +253,7 @@ function PriorityCard({ p, onToggle, onDetails }) {
           >
             {p.title}
           </p>
-          <p className="text-sm text-[#5B6B82] mt-0.5">{p.summary}</p>
+          <p className="text-sm text-[#5B6B82] mt-0.5 leading-relaxed">{p.summary}</p>
         </div>
 
         <div className="flex items-center justify-between sm:flex-col sm:items-end gap-1.5 shrink-0 pl-9 sm:pl-0">
@@ -246,7 +270,8 @@ function PriorityCard({ p, onToggle, onDetails }) {
               href="#"
               onClick={(e) => {
                 e.preventDefault()
-                onDetails(p.id)
+                if (p.checkable) onDetails(p.id)
+                else onGoto(p)
               }}
               className="flex items-center gap-1 text-sm font-medium text-[#28579C] hover:text-[#1E4278]"
           >
@@ -286,21 +311,8 @@ function ActionHistory({ items }) {
             >
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-[#18233D] truncate">{a.title}</p>
-                <p className="text-xs text-[#8B96A6] mt-0.5">Handled {fmtDateTime(a.actionTakenAt)}</p>
-              </div>
-              <div className="shrink-0 text-right">
-                {a.status === 'observed' ? (
-                    <>
-                      <p className="text-xs text-[#8B96A6]">
-                        {a.before?.value} → <span className="font-semibold text-[#18233D]">{a.after}</span>
-                      </p>
-                      <p className="text-[11px] text-[#8B96A6] italic">Observed after the action</p>
-                    </>
-                ) : (
-                    <span className="text-xs font-semibold text-[#2A7A82] bg-[#E8F4F5] rounded-full px-2 py-0.5">
-                Pending observation
-              </span>
-                )}
+                <p className="text-sm text-[#5B6B82] truncate mt-0.5">{a.summary}</p>
+                <p className="text-xs text-[#8B96A6] mt-1">Handled {fmtDateTime(a.actionTakenAt)}</p>
               </div>
             </div>
         ))}
@@ -386,7 +398,7 @@ function DetailsPanel({ open, loading, priority, onClose, onPrimary, onDismiss }
               <div className="px-6 py-6 space-y-6">
                 <div>
                   <h3 id="details-title" className="text-[19px] font-bold text-[#18233D]">
-                    {p.recommendation || p.title}
+                    {p.title}
                   </h3>
                   <div className="flex items-center gap-1.5 mt-2">
                     <Badge label={p.badge.label} tone={p.badge.tone} />
@@ -421,16 +433,6 @@ function DetailsPanel({ open, loading, priority, onClose, onPrimary, onDismiss }
                     Suggested action
                   </p>
                   <p className="text-sm text-[#18233D] font-medium">{p.suggestedAction}</p>
-                </div>
-
-                <div>
-                  <p className="text-[11px] font-bold text-[#8B96A6] uppercase tracking-wide mb-1.5">
-                    If you act on this
-                  </p>
-                  <p className="text-sm text-[#5B6B82] leading-relaxed">{p.expectedImpact}</p>
-                  <p className="text-xs text-[#8B96A6] mt-1.5 italic">
-                    Impact is an estimate. Outcomes are observed after the fact, not guaranteed.
-                  </p>
                 </div>
 
                 <div className="flex flex-col gap-2 pt-2 border-t border-[#E4E2DC]">
@@ -484,7 +486,7 @@ function Toast({ message }) {
    ========================================================================= */
 
 export default function Dashboard({ ownerName = 'there', onNavigate }) {
-  const [status, setStatus] = useState('loading') // loading | error | empty | loaded
+  const [status, setStatus] = useState('loading')
   const [brief, setBrief] = useState(null)
   const [regenerating, setRegenerating] = useState(false)
   const [salesToday, setSalesToday] = useState({ revenue: 0, volume: 0, prevRevenue: null })
@@ -502,12 +504,6 @@ export default function Dashboard({ ownerName = 'there', onNavigate }) {
 
   useEffect(() => () => clearTimeout(toastTimer.current), [])
 
-  /* ---- load ----
-     Today's Priorities comes straight from the daily brief (F5/F6):
-     GET /briefs/today/ only. Generation is NOT triggered from the frontend
-     anymore — it happens on a backend schedule (see tasks.py). If today's
-     brief doesn't exist yet (404), we just show the empty state; the
-     "Regenerate" button remains the only way to trigger generation manually. */
   const load = useCallback(async () => {
     setStatus('loading')
     try {
@@ -516,7 +512,7 @@ export default function Dashboard({ ownerName = 'there', onNavigate }) {
         briefData = (await api.get('/briefs/today/')).data
       } catch (err) {
         if (err.response?.status === 404) {
-          briefData = null // no brief yet today — render empty state, don't auto-generate
+          briefData = null 
         } else {
           throw err
         }
@@ -549,12 +545,9 @@ export default function Dashboard({ ownerName = 'there', onNavigate }) {
       const res = await api.get('/briefs/today/')
       setBrief(res.data)
     } catch (err) {
-      // ignore — next full load() retries anyway
     }
   }
 
-  // Dipakai tombol di empty state — aman diklik berkali-kali, backend
-  // cuma bener-bener generate kalau brief hari ini belum ada.
   async function generateBrief() {
     setRegenerating(true)
     try {
@@ -568,7 +561,6 @@ export default function Dashboard({ ownerName = 'there', onNavigate }) {
     }
   }
 
-  // Dipakai tombol "Regenerate" — selalu bikin ulang (force=true).
   async function regenerateBrief() {
     setRegenerating(true)
     try {
@@ -582,12 +574,21 @@ export default function Dashboard({ ownerName = 'there', onNavigate }) {
     }
   }
 
-  /* ---- priorities ---- */
   const allActions = brief?.actions || []
   const priorities = useMemo(() => {
     if (status !== 'ready') return []
     return allActions.filter((a) => a.status === 'pending').map(mapBriefAction)
   }, [status, allActions])
+
+  const priceActions = useMemo(() => priorities.filter((p) => p.checkable), [priorities])
+  const restockActions = useMemo(
+      () => priorities.filter((p) => allActions.find((a) => a.id === p.id)?.action_type === 'restock'),
+      [priorities, allActions],
+  )
+  const expiryActions = useMemo(
+      () => priorities.filter((p) => allActions.find((a) => a.id === p.id)?.action_type === 'expiry_alert'),
+      [priorities, allActions],
+  )
 
   const historyItems = useMemo(() => {
     return allActions
@@ -609,10 +610,6 @@ export default function Dashboard({ ownerName = 'there', onNavigate }) {
           ? ((salesToday.revenue - salesToday.prevRevenue) / salesToday.prevRevenue) * 100
           : null
 
-  /* ---- actions ----
-     status can only move pending -> acted/dismissed (no revert), matching
-     PATCH /briefs/actions/{id}/ — so handled/dismissed items simply drop
-     out of Today's Priorities once refreshed. */
   async function updateActionStatus(id, newStatus, toastMsg) {
     try {
       await api.patch(`/briefs/actions/${id}/`, { status: newStatus })
@@ -632,6 +629,10 @@ export default function Dashboard({ ownerName = 'there', onNavigate }) {
     updateActionStatus(id, 'dismissed', 'Dismissed for now.')
   }
 
+  function goToAction(p) {
+    if (onNavigate && p.gotoPage) onNavigate(p.gotoPage, p.refId)
+  }
+
   function openDetails(id) {
     setDetailsId(id)
     setDetailsLoading(true)
@@ -646,7 +647,6 @@ export default function Dashboard({ ownerName = 'there', onNavigate }) {
 
   const activePriority = priorities.find((p) => p.id === detailsId) || null
 
-  /* ---- render ---- */
   return (
       <div
           className="bg-[#F7F5F0] text-[#18233D] antialiased min-h-full"
@@ -724,7 +724,6 @@ export default function Dashboard({ ownerName = 'there', onNavigate }) {
               </div>
             </div>
 
-            {/* perforated divider */}
             <div className="relative" aria-hidden="true">
               <div className="border-t-2 border-dashed border-[#A2670C]/35" />
               <span className="absolute -left-3 -top-3 w-6 h-6 rounded-full bg-[#F7F5F0]" />
@@ -814,22 +813,57 @@ export default function Dashboard({ ownerName = 'there', onNavigate }) {
             )}
 
             {listStatus === 'loaded' && (
-                <div className="space-y-2.5">
-                  {priorities.map((p) => (
-                      <PriorityCard key={p.id} p={p} onToggle={togglePriority} onDetails={openDetails} />
-                  ))}
+                <div className="space-y-6">
+                  {priceActions.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-[#8B96A6] uppercase tracking-wide mb-2">
+                          Review price &amp; discount
+                        </p>
+                        <div className="space-y-2.5">
+                          {priceActions.map((p) => (
+                              <PriorityCard key={p.id} p={p} onToggle={togglePriority} onDetails={openDetails} onGoto={goToAction} />
+                          ))}
+                        </div>
+                      </div>
+                  )}
+
+                  {restockActions.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-[#8B96A6] uppercase tracking-wide mb-2">
+                          Stock — needs restock
+                        </p>
+                        <div className="space-y-2.5">
+                          {restockActions.map((p) => (
+                              <PriorityCard key={p.id} p={p} onToggle={togglePriority} onDetails={openDetails} onGoto={goToAction} />
+                          ))}
+                        </div>
+                      </div>
+                  )}
+
+                  {expiryActions.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-[#8B96A6] uppercase tracking-wide mb-2">
+                          Expiry alerts
+                        </p>
+                        <div className="space-y-2.5">
+                          {expiryActions.map((p) => (
+                              <PriorityCard key={p.id} p={p} onToggle={togglePriority} onDetails={openDetails} onGoto={goToAction} />
+                          ))}
+                        </div>
+                      </div>
+                  )}
                 </div>
             )}
           </section>
 
-          {/* ============ IMPACT / ACTION HISTORY ============ */}
-          <section aria-labelledby="impact-heading">
+          {/* ============ ACTION HISTORY ============ */}
+          <section aria-labelledby="action-history-heading">
             <div className="flex items-baseline justify-between mb-3">
               <h2
-                  id="impact-heading"
+                  id="action-history-heading"
                   className="text-[13px] font-bold text-[#18233D] uppercase tracking-wide"
               >
-                Impact / Action History
+                Action History
               </h2>
             </div>
             <div className={`rounded-xl bg-white ${SHADOW_CARD}`}>
