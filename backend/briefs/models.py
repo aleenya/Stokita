@@ -39,5 +39,37 @@ class BriefAction(models.Model):
     rupiah_impact = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=PENDING)
 
+    # untuk impact
+    acted_at = models.DateTimeField(null=True, blank=True)
+    baseline_snapshot = models.JSONField(null=True, blank=True)
+
     class Meta:
         db_table = "brief_actions"
+
+class ActionImpactCheck(models.Model):
+    """
+    Satu baris = satu hasil pengecekan mingguan buat sebuah BriefAction.
+    Satu action bisa punya banyak baris ini (dicek tiap minggu selama
+    masih dalam window 30 hari sejak acted_at).
+    """
+    POSITIVE = "positive"
+    NEGATIVE = "negative"
+    INCONCLUSIVE = "inconclusive"
+    EXTERNAL = "external"
+    ANSWER_CHOICES = [
+        (POSITIVE, "Positive"), (NEGATIVE, "Negative"),
+        (INCONCLUSIVE, "Inconclusive"), (EXTERNAL, "Likely external"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    action = models.ForeignKey(BriefAction, on_delete=models.CASCADE, related_name="impact_checks")
+    week_start = models.DateField()  # Senin dari minggu pengecekan ini dilakukan
+    followup_snapshot = models.JSONField()
+    answer = models.CharField(max_length=15, choices=ANSWER_CHOICES)
+    reasoning = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("action", "week_start") 
+        ordering = ["-week_start"]
+        db_table = "action_impact_check"

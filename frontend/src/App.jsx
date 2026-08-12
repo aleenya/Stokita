@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import api from './api/client'
@@ -7,13 +7,18 @@ import MenusPage from './pages/MenusPage'
 import SalesPage from './pages/SalesPage'
 import ProfitPage from './pages/ProfitPage'
 import BriefPage from './pages/BriefPage'
-
-const PAGES = ['ingredients', 'menus', 'sales', 'profit', 'brief']
+import PeoplePage from './pages/PeoplePage'
 
 function App() {
   const [token, setToken] = useState(() => localStorage.getItem('stokita_token'))
+  const [me, setMe] = useState(null)
   const [page, setPage] = useState('ingredients')
   const [authView, setAuthView] = useState('login') // 'login' | 'register'
+
+  useEffect(() => {
+    if (!token) return
+    api.get('/me/').then((res) => setMe(res.data)).catch(() => setMe(null))
+  }, [token])
 
   function handleLoginSuccess(newToken) {
     setToken(newToken)
@@ -27,6 +32,7 @@ function App() {
     localStorage.removeItem('stokita_token')
     delete api.defaults.headers.common['Authorization']
     setToken(null)
+    setMe(null)
   }
 
   if (!token) {
@@ -42,6 +48,11 @@ function App() {
       />
     )
   }
+
+  const isOwner = me?.role === 'owner'
+  const PAGES = isOwner
+    ? ['ingredients', 'menus', 'sales', 'profit', 'brief', 'people']
+    : ['ingredients', 'menus', 'sales', 'profit', 'brief']
 
   return (
     <div className="min-h-screen bg-[#FAF6EC] font-[Inter,sans-serif]">
@@ -73,6 +84,7 @@ function App() {
         {page === 'sales' && <SalesPage onLogout={handleLogout} />}
         {page === 'profit' && <ProfitPage onLogout={handleLogout} />}
         {page === 'brief' && <BriefPage onLogout={handleLogout} />}
+        {page === 'people' && isOwner && <PeoplePage onLogout={handleLogout} />}
       </main>
     </div>
   )

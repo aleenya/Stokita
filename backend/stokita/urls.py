@@ -21,6 +21,7 @@ from accounts.views import RegisterView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path("api/v1/", include("accounts.urls")),
     path("api/v1/", include("inventory.urls")),
     path("api/v1/", include("menus.urls")),
     path("api/v1/", include("sales.urls")),

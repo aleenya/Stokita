@@ -155,3 +155,62 @@ def generate_recommendations(context):
             logger.exception("Gemini call failed, falling back to rule-based recommendations.")
 
     return _rule_based_recommendations(context)
+
+def _build_impact_prompt(action_message, baseline, followup, other_context):
+    return f"""
+        Kamu membantu bisnis F&B kecil mengevaluasi apakah sebuah aksi yang
+        direkomendasikan benar-benar berdampak ke bisnis mereka.
+
+        Aksi yang dilakukan: {action_message}
+
+        Metrik SEBELUM aksi dilakukan (baseline, agregat 7 hari):
+        {json.dumps(baseline, indent=2, default=str)}
+
+        Metrik SETELAH beberapa waktu berjalan (follow-up, agregat 7 hari terbaru):
+        {json.dumps(followup, indent=2, default=str)}
+
+        Konteks lain yang mungkin relevan (aksi lain yang terjadi di periode yang
+        sama):
+        {other_context or "Tidak ada konteks tambahan."}
+
+        Pikirkan langkah demi langkah sebelum menjawab:
+        1. Bandingkan angka baseline vs follow-up — naik, turun, atau stabil?
+        2. Apakah besarnya perubahan itu masuk akal disebabkan oleh aksi yang dilakukan?
+        3. Apakah ada faktor lain di "konteks lain" yang lebih mungkin jadi penyebab?
+        4. Kalau datanya belum cukup jelas, jangan memaksakan jawaban positif/negatif.
+
+        Jawab HANYA dalam format JSON berikut, tanpa markdown:
+        {{
+        "answer": "positive" | "negative" | "inconclusive" | "external",
+        "reasoning": "penjelasan singkat dalam Bahasa Indonesia, sebutkan angka konkret yang dibandingkan"
+        }}
+    """
+
+
+def analyze_impact(action_message: str, baseline: dict, followup: dict, other_context: str = ""):
+    """
+    Return dict {"answer": str, "reasoning": str} atau None kalau gagal
+    (key gak ada, API error, atau response gak valid JSON).
+    """
+    from google import genai
+
+    if not settings.GEMINI_API_KEY:
+        return None
+
+    prompt = _build_impact_prompt(action_message, baseline, followup, other_context)
+    try:
+        client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        response = client.models.generate_content(
+            model="gemini-3.6-flash",
+            contents=prompt,
+            config={"response_mime_type": "application/json"},
+        )
+        result = json.loads(response.text)
+        if result.get("answer") not in {"positive", "negative", "inconclusive", "external"}:
+            return None
+        if not result.get("reasoning"):
+            return None
+        return result
+    except Exception:
+        logger.exception("Gemini impact analysis failed")
+        return None

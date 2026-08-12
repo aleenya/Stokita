@@ -5,13 +5,14 @@ from .models import Menu, MenuRecipe
 from .serializers import MenuSerializer
 from rest_framework.permissions import IsAuthenticated
 from accounts.permissions import IsOwner
+from accounts.permissions import feature_required
  
 class MenuViewSet(viewsets.ModelViewSet):
     serializer_class = MenuSerializer
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy", "recipe"]:
-            return [IsAuthenticated(), IsOwner()]
+            return [IsAuthenticated(), feature_required("menus_manage")()]
         return [IsAuthenticated()]
  
     def get_queryset(self):

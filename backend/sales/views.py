@@ -8,6 +8,7 @@ from .serializers import SaleSerializer
 from .services import record_sale
 from rest_framework.permissions import IsAuthenticated
 from accounts.permissions import IsOwner
+from accounts.permissions import feature_required
  
  
 class SaleViewSet(viewsets.ModelViewSet):
@@ -32,8 +33,8 @@ class SaleViewSet(viewsets.ModelViewSet):
  
 class ProfitAnalyticsViewSet(viewsets.ViewSet):
     """F3: per-menu profit and health classification."""
-    permission_classes = [IsAuthenticated, IsOwner]
- 
+    permission_classes = [IsAuthenticated, feature_required("profit_analytics")]
+
     def _classify(self, margin_pct, target):
         # thresholds are initial configurable rules, not fixed standards
         if margin_pct >= target:

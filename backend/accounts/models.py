@@ -30,3 +30,20 @@ class User(AbstractUser):
 
     def is_owner(self):
         return self.role == self.OWNER
+
+class StaffFeatureGrant(models.Model):
+    FEATURE_CHOICES = [
+        ("ingredients_manage", "Manage Ingredients"),
+        ("menus_manage", "Manage Menus"),
+        ("profit_analytics", "Profit Analytics"),
+        ("brief", "Daily Brief"),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    staff = models.ForeignKey(User, on_delete=models.CASCADE, related_name="feature_grants")
+    feature = models.CharField(max_length=50, choices=FEATURE_CHOICES)
+    granted_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name="+")
+    granted_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("staff", "feature")
