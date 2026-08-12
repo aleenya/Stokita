@@ -65,6 +65,19 @@ function formatRupiah(n) {
   return 'Rp' + Math.round(Number(n) || 0).toLocaleString('id-ID')
 }
 
+function extractError(err) {
+  const data = err.response?.data
+  if (!data) return ''
+  if (typeof data === 'string') return data
+  if (data.error) return data.error
+  const firstKey = Object.keys(data)[0]
+  if (firstKey) {
+    const val = data[firstKey]
+    return Array.isArray(val) ? val[0] : String(val)
+  }
+  return ''
+}
+
 function confidenceTone(score) {
   if (score >= 85) return 'success'
   if (score >= 50) return 'warning'
@@ -582,6 +595,7 @@ export default function SalesPage() {
   const [dateFilter, setDateFilter] = useState('')
 
   const [recordModalOpen, setRecordModalOpen] = useState(false)
+  const [deletingId, setDeletingId] = useState(null)
   const importSectionRef = useRef(null)
 
   async function fetchAll(date) {
@@ -612,6 +626,20 @@ export default function SalesPage() {
   function showSuccessToast(msg) {
     setSuccess(msg)
     setTimeout(() => setSuccess(''), 3500)
+  }
+
+  async function handleDeleteSale(sale) {
+    if (!window.confirm(`Batalkan sale tanggal ${sale.sale_date}? Stok bahan yang kepotong bakal dikembalikan.`)) return
+    setDeletingId(sale.id)
+    try {
+      await api.delete(`/sales/${sale.id}/`)
+      setSales((prev) => prev.filter((s) => s.id !== sale.id))
+      showSuccessToast('Sale dibatalkan, stok udah dikembalikan.')
+    } catch (err) {
+      setError(extractError(err) || 'Gagal membatalkan sale.')
+    } finally {
+      setDeletingId(null)
+    }
   }
 
   const metrics = {
@@ -685,9 +713,19 @@ export default function SalesPage() {
                         <IconReceipt className="w-4 h-4 text-[#8B96A6]" />
                         <p className="text-sm font-semibold text-[#18233D]">{sale.sale_date}</p>
                       </div>
-                      <div className="flex gap-4 text-xs">
+                      <div className="flex items-center gap-4 text-xs">
                         <span className="text-[#5B6B82]">Revenue <span className="font-semibold text-[#18233D] tabular-nums">{formatRupiah(revenue)}</span></span>
                         <span className="text-[#5B6B82]">Profit <span className="font-semibold text-[#2E7D53] tabular-nums">{formatRupiah(profit)}</span></span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteSale(sale)}
+                          disabled={deletingId === sale.id}
+                          title="Batalkan sale ini"
+                          className="flex items-center gap-1 text-[#B8433B] hover:text-[#8F332C] transition-colors disabled:opacity-50"
+                        >
+                          <IconTrash className="w-3.5 h-3.5" />
+                          {deletingId === sale.id ? 'Membatalkan…' : 'Batalkan'}
+                        </button>
                       </div>
                     </div>
                     <ul className="text-xs text-[#8B96A6] space-y-1">
