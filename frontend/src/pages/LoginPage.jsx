@@ -114,13 +114,10 @@ export default function LoginPage({ onLoginSuccess, onSwitchToRegister }) {
 
     setLoading(true)
     try {
-      const res = await api.post('/auth/login/', { username, password })
-      const token = res.data.token
-
-      localStorage.setItem('stokita_token', token)
-      api.defaults.headers.common['Authorization'] = `Token ${token}`
-
-      onLoginSuccess?.(token)
+      // Tokens come back as httpOnly cookies (Set-Cookie), not in the
+      // response body — nothing for JS to store.
+      await api.post('/auth/login/', { username, password })
+      onLoginSuccess?.()
     } catch (err) {
       if (err.response?.status === 400 || err.response?.status === 401) {
         setError('Username atau password salah.')

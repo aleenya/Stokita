@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+from datetime import timedelta
 from pathlib import Path
 from decouple import config
 
@@ -40,6 +41,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     # third party
     "rest_framework",
+    "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     # local apps
     "accounts",
@@ -47,7 +49,6 @@ INSTALLED_APPS = [
     "menus",
     "sales",
     "briefs",
-    "rest_framework.authtoken",
 ]
 
 MIDDLEWARE = [
@@ -93,6 +94,15 @@ DATABASES = {
         "PASSWORD": config("DB_PASSWORD"),
         "HOST": config("DB_HOST"),
         "PORT": config("DB_PORT", default="5432"),
+        # Tried CONN_MAX_AGE>0 here to reuse connections across requests
+        # (Supabase is remote, so a fresh TCP+TLS handshake per request is
+        # real overhead) — reverted after it caused requests to hang with
+        # no error after a few reuses. Likely PgBouncer running in
+        # transaction-pooling mode server-side, which doesn't play well
+        # with a client holding a connection open past one transaction.
+        # Worth revisiting with CONN_HEALTH_CHECKS if Supabase's session-
+        # mode pooler port (or a direct, non-pooled connection) is used
+        # instead — but don't re-enable against the current DB_HOST as-is.
     }
 }
 
@@ -116,18 +126,54 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 AUTH_USER_MODEL = "accounts.User"
- 
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.SessionAuthentication",
-        "accounts.authentication.TokenAuthentication",
+        "accounts.authentication.CookieJWTAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
 }
- 
-CORS_ALLOW_ALL_ORIGINS = True
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "UPDATE_LAST_LOGIN": True,
+}
+
+# Auth cookie names, shared by accounts/authentication.py, accounts/cookies.py
+# and accounts/views.py.
+ACCESS_COOKIE_NAME = "access_token"
+REFRESH_COOKIE_NAME = "refresh_token"
+
+# Cross-origin (frontend/backend on different domains) cookie auth needs
+# SameSite=None, which browsers only honor together with Secure — so this
+# only works over HTTPS. Locally (DEBUG=True, plain http://localhost) we
+# fall back to Lax + non-secure so the cookies still get set at all.
+AUTH_COOKIE_SECURE = not DEBUG
+AUTH_COOKIE_SAMESITE = "None" if not DEBUG else "Lax"
+
+# CORS_ALLOW_ALL_ORIGINS can't be combined with credentialed (cookie)
+# requests — browsers reject "*" + credentials. Needs an explicit list.
+CORS_ALLOWED_ORIGINS = [
+    o.strip() for o in config("CORS_ALLOWED_ORIGINS", default="http://localhost:5173").split(",") if o.strip()
+]
+CORS_ALLOW_CREDENTIALS = True
+
+# Cross-origin POST/PUT/PATCH/DELETE from the SPA needs the frontend origin
+# explicitly trusted, on top of CORS (this is Django's own CSRF check, not
+# DRF's — see CookieJWTAuthentication.enforce_csrf).
+CSRF_TRUSTED_ORIGINS = [
+    o.strip() for o in config("CSRF_TRUSTED_ORIGINS", default="http://localhost:5173").split(",") if o.strip()
+]
+CSRF_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SAMESITE = AUTH_COOKIE_SAMESITE
+# Must stay readable by JS — axios reads this cookie and echoes it back as
+# the X-CSRFToken header on unsafe requests (Django's double-submit check).
+CSRF_COOKIE_HTTPONLY = False
 
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/

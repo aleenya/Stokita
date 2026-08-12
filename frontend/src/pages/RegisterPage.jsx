@@ -96,17 +96,16 @@ export default function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
       const res = await api.post('/auth/register/', payload)
 
       if (res.data.is_active === false) {
-        // Staff account created but not yet approved by the owner — the
-        // token won't work against the API until they're activated.
+        // Staff account created but not yet approved by the owner — no
+        // cookies were set for them (see backend RegisterView) until
+        // they're activated.
         setPendingApproval(true)
         return
       }
 
-      const token = res.data.token
-      localStorage.setItem('stokita_token', token)
-      api.defaults.headers.common['Authorization'] = `Token ${token}`
-
-      onRegisterSuccess?.(token)
+      // Tokens come back as httpOnly cookies (Set-Cookie), not in the
+      // response body — nothing for JS to store.
+      onRegisterSuccess?.()
     } catch (err) {
       setError(extractError(err) || 'Gagal mendaftar. Coba lagi.')
     } finally {
