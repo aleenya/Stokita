@@ -5,9 +5,16 @@ from rest_framework.response import Response
 from .models import DailyBrief, BriefAction, ActionImpactCheck
 from .serializers import DailyBriefSerializer, ActionImpactCheckSerializer
 from .services import generate_daily_brief, mark_action_acted, generate_weekly_impact_checks
+from .models import DailyBrief, BriefAction
+from .serializers import DailyBriefSerializer
+from .services import generate_daily_brief
+from rest_framework.permissions import IsAuthenticated
+from accounts.permissions import IsOwner
  
  
 class BriefViewSet(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated, IsOwner]
+
     def _get_business(self):
         return self.request.user.business
  
@@ -44,6 +51,8 @@ class BriefViewSet(viewsets.ViewSet):
 
  
 class BriefActionViewSet(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated, IsOwner]
+
     def partial_update(self, request, pk=None):
         try:
             act = BriefAction.objects.get(
