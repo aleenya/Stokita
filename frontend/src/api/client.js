@@ -9,6 +9,14 @@ const api = axios.create({
   withCredentials: true,
   xsrfCookieName: 'csrftoken',
   xsrfHeaderName: 'X-CSRFToken',
+  // axios only auto-attaches the xsrf header for same-origin requests
+  // unless told otherwise — frontend (5173) and backend (8000) are
+  // different origins even in local dev, so without this every POST/PUT
+  // /PATCH/DELETE silently went out with no CSRF header and got rejected
+  // by the backend's enforce_csrf() (looked like "not recognized as
+  // owner" since every mutating request failed the same way regardless
+  // of role).
+  withXSRFToken: true,
 })
 
 // Access tokens expire after 30min (see backend SIMPLE_JWT settings) —
