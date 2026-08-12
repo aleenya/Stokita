@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import api from './api/client'
@@ -11,41 +11,64 @@ import Dashboard from './pages/Dashboard'
 import Sidebar, { MobileTopbar, pageLabel } from './components/Sidebar'
 
 function App() {
-  const [token, setToken] = useState(() => localStorage.getItem('stokita_token'))
+  // Auth now lives in httpOnly cookies the browser sends automatically —
+  // there's no client-readable token to check for presence anymore, so
+  // "am I logged in" is answered by actually asking the API.
+  const [authStatus, setAuthStatus] = useState('checking') // checking | in | out
   const [me, setMe] = useState(null)
   const [page, setPage] = useState('dashboard')
   const [authView, setAuthView] = useState('login') // 'login' | 'register'
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
+  const checkSession = useCallback(async () => {
+    try {
+      const res = await api.get('/me/')
+      setMe(res.data)
+      setAuthStatus('in')
+    } catch {
+      setMe(null)
+      setAuthStatus('out')
+    }
+  }, [])
+
   useEffect(() => {
-    if (!token) return
-    api.get('/me/').then((res) => setMe(res.data)).catch(() => setMe(null))
-  }, [token])
+    // Primes the csrftoken cookie so login/register — and every mutating
+    // request after — can echo it back as X-CSRFToken.
+    api.get('/auth/csrf/').catch(() => {})
+    checkSession()
+  }, [checkSession])
 
-  function handleLoginSuccess(newToken) {
-    setToken(newToken)
+  function handleAuthSuccess() {
+    checkSession()
   }
 
-  function handleRegisterSuccess(newToken) {
-    setToken(newToken)
-  }
-
-  function handleLogout() {
-    localStorage.removeItem('stokita_token')
-    delete api.defaults.headers.common['Authorization']
-    setToken(null)
+  async function handleLogout() {
+    try {
+      await api.post('/auth/logout/')
+    } catch {
+      // best-effort — still clear local state below even if the request failed
+    }
     setMe(null)
+    setAuthStatus('out')
   }
 
-  if (!token) {
+  if (authStatus === 'checking') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#F7F5F0]">
+        <p className="text-sm text-[#5B6B82]">Loading…</p>
+      </div>
+    )
+  }
+
+  if (authStatus === 'out') {
     return authView === 'login' ? (
       <LoginPage
-        onLoginSuccess={handleLoginSuccess}
+        onLoginSuccess={handleAuthSuccess}
         onSwitchToRegister={() => setAuthView('register')}
       />
     ) : (
       <RegisterPage
-        onRegisterSuccess={handleRegisterSuccess}
+        onRegisterSuccess={handleAuthSuccess}
         onSwitchToLogin={() => setAuthView('login')}
       />
     )

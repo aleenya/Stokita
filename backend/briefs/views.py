@@ -56,14 +56,18 @@ class BriefActionViewSet(viewsets.ViewSet):
 
     def partial_update(self, request, pk=None):
         try:
-            act = BriefAction.objects.get(
-                id=pk, brief__business=request.user.business)
+            act = BriefAction.objects.get(id=pk, brief__business=request.user.business)
         except BriefAction.DoesNotExist:
             return Response(status=404)
 
         new_status = request.data.get("status")
         if new_status == BriefAction.ACTED:
-            act = mark_action_acted(act)  # <- nyimpen acted_at + baseline_snapshot otomatis
+            if act.action_type not in (BriefAction.REVIEW_MENU, BriefAction.DISCOUNT):
+                return Response(
+                    {"error": f"'{act.action_type}' actions can't be marked acted directly."},
+                    status=400,
+                )
+            act = mark_action_acted(act)
         elif new_status == BriefAction.DISMISSED:
             act.status = new_status
             act.save(update_fields=["status"])

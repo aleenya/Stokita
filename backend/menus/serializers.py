@@ -1,7 +1,18 @@
+from decimal import Decimal
 from rest_framework import serializers
 from .models import Menu, MenuRecipe
- 
- 
+
+
+class RecipeLineInputSerializer(serializers.Serializer):
+    """Validates PUT /menus/{id}/recipe/ body lines — the view used to
+    index into request.data dicts directly with no validation at all
+    (KeyError -> 500 on a missing field, no floor on qty_per_serving)."""
+    ingredient_id = serializers.UUIDField()
+    qty_per_serving = serializers.DecimalField(
+        max_digits=12, decimal_places=3, min_value=Decimal("0.001")
+    )
+
+
 class MenuRecipeSerializer(serializers.ModelSerializer):
     class Meta:
         model = MenuRecipe

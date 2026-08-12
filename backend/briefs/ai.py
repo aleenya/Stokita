@@ -58,33 +58,29 @@ _VALID_ACTION_TYPES = {"restock", "discount", "review_menu", "expiry_alert"}
 def _build_prompt(context):
     """Turn the context dict into a plain-language + JSON prompt for Gemini."""
     return f"""
-You are a decision-support assistant for a small F&B business owner.
-Based on the business data below, recommend concrete actions the owner
-should take today. Ground every recommendation in the actual numbers
-given — do not invent ingredients, menus, or figures that aren't in the data.
+Anda adalah asisten pendukung keputusan untuk pemilik usaha F&B skala kecil.
+Berdasarkan data bisnis di bawah ini, rekomendasikan tindakan konkret yang harus diambil pemilik hari ini. Dasarkan setiap rekomendasi pada angka aktual yang diberikan — jangan mengarang bahan, menu, atau angka yang tidak ada di dalam data.
 
-Business data:
+Data bisnis:
 {json.dumps(context, indent=2, default=str)}
 
-Respond with ONLY a JSON array (no markdown, no extra text), where each
-item has this exact shape:
+Balas HANYA dengan array JSON (tanpa format markdown, tanpa teks tambahan apa pun), di mana setiap item memiliki format persis seperti ini:
 [
   {{
     "action_type": "restock" | "discount" | "review_menu" | "expiry_alert",
-    "message": "short, clear recommendation in plain language",
-    "related_ingredient_id": "uuid string or null",
-    "related_menu_id": "uuid string or null",
-    "rupiah_impact": integer estimate of the rupiah impact, 0 if unknown
+    "message": "rekomendasi singkat dan jelas dalam bahasa Indonesia",
+    "related_ingredient_id": "string uuid atau null",
+    "related_menu_id": "string uuid atau null",
+    "rupiah_impact": perkiraan dampak dalam satuan rupiah (integer), isi 0 jika tidak diketahui
   }}
 ]
 
-Rules:
-- related_ingredient_id must be one of the ingredient "id" values in the data, or null.
-- related_menu_id must be one of the menu "menu_id" values in the data, or null.
-- Only recommend restocking ingredients that appear in the low-stock data.
-- Only recommend reviewing menus that appear in the profit data with a
-  "worrying" or low state.
-- Keep the array to at most 8 actions, prioritizing the highest-impact ones.
+Aturan:
+- related_ingredient_id harus menggunakan salah satu nilai "id" bahan (ingredient) yang ada di dalam data, atau null.
+- related_menu_id harus menggunakan salah satu nilai "menu_id" yang ada di dalam data, atau null.
+- Hanya rekomendasikan restock bahan jika bahan tersebut muncul di dalam data stok menipis (low-stock).
+- Hanya rekomendasikan peninjauan (review) menu jika menu tersebut muncul di dalam data profit dengan status "worrying" (mengkhawatirkan) atau rendah.
+- Batasi array maksimal 8 tindakan, prioritaskan yang memiliki dampak (impact) tertinggi.
 """
 
 
