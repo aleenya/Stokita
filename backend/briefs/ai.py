@@ -33,7 +33,7 @@ def _rule_based_recommendations(context):
  
     # 2. worrying-margin menus -> review
     for menu in context["profit"]:
-        if menu["state"] == "worrying":
+        if menu["state"] == "low":
             actions.append({
                 "action_type": "review_menu",
                 "message": f"{menu['name']} margin is worrying ({menu['margin_pct']}%). Review pricing or recipe.",
