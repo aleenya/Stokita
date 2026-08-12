@@ -8,6 +8,9 @@ export default function IngredientsPage() {
 
   const [form, setForm] = useState({ name: '', unit: 'kg', current_stock: '', cost_per_unit: '', low_stock_threshold: '' })
   const [restockQty, setRestockQty] = useState({}) // { [ingredientId]: value }
+  const [editingId, setEditingId] = useState(null)
+  const [editForm, setEditForm] = useState({ name: '', unit: '', cost_per_unit: '', low_stock_threshold: '' })
+
 
   async function fetchIngredients() {
     setLoading(true)
@@ -54,6 +57,32 @@ export default function IngredientsPage() {
       setError('Gagal restock.')
     }
   }
+
+  function startEdit(ing) {
+  setEditingId(ing.id)
+  setEditForm({
+    name: ing.name,
+    unit: ing.unit,
+    cost_per_unit: ing.cost_per_unit,
+    low_stock_threshold: ing.low_stock_threshold ?? '',
+  })
+}
+
+async function saveEdit(id) {
+  try {
+    await api.patch(`/ingredients/${id}/`, {
+      name: editForm.name,
+      unit: editForm.unit,
+      cost_per_unit: editForm.cost_per_unit,
+      low_stock_threshold: editForm.low_stock_threshold || null,
+    })
+    setEditingId(null)
+    fetchIngredients()
+  } catch (err) {
+    setError('Gagal update ingredient.')
+  }
+}
+
 
   return (
     <div className="max-w-4xl">
@@ -127,31 +156,68 @@ export default function IngredientsPage() {
               <th className="text-left px-4 py-2">Stock</th>
               <th className="text-left px-4 py-2">Cost/unit</th>
               <th className="text-left px-4 py-2">Restock</th>
+              <th className="text-left px-4 py-2">Edit</th>
+
             </tr>
           </thead>
           <tbody>
             {ingredients.map((ing) => (
+
               <tr key={ing.id} className="border-t border-[#D8D0BF]">
-                <td className="px-4 py-2">{ing.name}</td>
-                <td className="px-4 py-2">{ing.current_stock} {ing.unit}</td>
-                <td className="px-4 py-2">{ing.cost_per_unit}</td>
-                <td className="px-4 py-2">
-                  <div className="flex gap-2">
-                    <input
-                      type="number" step="0.001"
-                      value={restockQty[ing.id] || ''}
-                      onChange={(e) => setRestockQty({ ...restockQty, [ing.id]: e.target.value })}
-                      className="border border-[#D8D0BF] rounded-md px-2 py-1 w-20 text-sm"
-                      placeholder="qty"
-                    />
-                    <button
-                      onClick={() => handleRestock(ing.id)}
-                      className="text-[#5C8B6E] text-xs font-medium hover:underline"
-                    >
-                      Restock
-                    </button>
-                  </div>
-                </td>
+                {editingId === ing.id ? (
+                  <>
+                    <td className="px-4 py-2">
+                      <input
+                        value={editForm.name}
+                        onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                        className="border border-[#D8D0BF] rounded-md px-2 py-1 text-sm w-full"
+                      />
+                    </td>
+                    <td className="px-4 py-2 text-xs text-[#5C6B62]">{ing.current_stock} {ing.unit} (locked)</td>
+                    <td className="px-4 py-2">
+                      <input
+                        type="number" step="0.01"
+                        value={editForm.cost_per_unit}
+                        onChange={(e) => setEditForm({ ...editForm, cost_per_unit: e.target.value })}
+                        className="border border-[#D8D0BF] rounded-md px-2 py-1 text-sm w-24"
+                      />
+                    </td>
+                    <td className="px-4 py-2 text-xs text-[#5C6B62]">—</td>
+                    <td className="px-4 py-2 flex gap-2">
+                      <button onClick={() => saveEdit(ing.id)} className="text-[#5C8B6E] text-xs font-medium hover:underline">
+                        Save
+                      </button>
+                      <button onClick={() => setEditingId(null)} className="text-[#5C6B62] text-xs">
+                        Cancel
+                      </button>
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td className="px-4 py-2">{ing.name}</td>
+                    <td className="px-4 py-2">{ing.current_stock} {ing.unit}</td>
+                    <td className="px-4 py-2">{ing.cost_per_unit}</td>
+                    <td className="px-4 py-2">
+                      <div className="flex gap-2">
+                        <input
+                          type="number" step="0.001"
+                          value={restockQty[ing.id] || ''}
+                          onChange={(e) => setRestockQty({ ...restockQty, [ing.id]: e.target.value })}
+                          className="border border-[#D8D0BF] rounded-md px-2 py-1 w-20 text-sm"
+                          placeholder="qty"
+                        />
+                        <button onClick={() => handleRestock(ing.id)} className="text-[#5C8B6E] text-xs font-medium hover:underline">
+                          Restock
+                        </button>
+                      </div>
+                    </td>
+                    <td className="px-4 py-2">
+                      <button onClick={() => startEdit(ing)} className="text-[#E2A33D] text-xs font-medium hover:underline">
+                        Edit
+                      </button>
+                    </td>
+                  </>
+                )}
               </tr>
             ))}
           </tbody>

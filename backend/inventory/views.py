@@ -6,16 +6,26 @@ from .models import Ingredient, StockMovement
 from .serializers import IngredientSerializer
 from datetime import date, timedelta
 from .ai import estimate_shelf_life, parse_receipt
+from rest_framework.permissions import IsAuthenticated
+from accounts.permissions import IsOwner
  
  
 class IngredientViewSet(viewsets.ModelViewSet):
     serializer_class = IngredientSerializer
+
+    def get_permissions(self):
+        if self.action in ["create", "update", "partial_update", "destroy"]:
+            return [IsAuthenticated(), IsOwner()]
+        return [IsAuthenticated()]
  
     def get_queryset(self):
         return Ingredient.objects.filter(business=self.request.user.business)
  
     def perform_create(self, serializer):
         serializer.save(business=self.request.user.business)
+
+    def perform_update(self, serializer):
+        serializer.save(current_stock=serializer.instance.current_stock)
  
     @action(detail=True, methods=["post"])
     def restock(self, request, pk=None):
@@ -34,7 +44,7 @@ class IngredientViewSet(viewsets.ModelViewSet):
         ingredient.save(update_fields=["current_stock"])
         return Response({"current_stock": ingredient.current_stock})
 
-    @action(detail=False, methods=["post"])
+    @action(detail=False, methods=["post"], url_path="estimate-expiry")
     def estimate_expiry(self, request):
         """
         Dipanggil dari tombol 'Generate expiry' di form restock —
@@ -66,7 +76,7 @@ class IngredientViewSet(viewsets.ModelViewSet):
         })
 
 
-    @action(detail=False, methods=["post"])
+    @action(detail=False, methods=["post"], url_path="parse-receipt")
     def parse_receipt_view(self, request):
         """
         Upload foto struk -> extract item bahan + auto-generate estimasi
@@ -112,7 +122,7 @@ class IngredientViewSet(viewsets.ModelViewSet):
 
         return Response({"items": results})
 
-    @action(detail=False, methods=["post"])
+    @action(detail=False, methods=["post"], url_path="bulk-restock")
     def bulk_restock(self, request):
         """
         Submit banyak item sekaligus (hasil review dari parse-receipt).
