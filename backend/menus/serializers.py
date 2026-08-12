@@ -26,7 +26,8 @@ class MenuSerializer(serializers.ModelSerializer):
     class Meta:
         model = Menu
         fields = ["id", "name", "sell_price", "target_margin", "is_active",
-                  "recipe_lines", "unit_cost", "created_at"]
+          "recipe_lines", "unit_cost", "created_at",
+          "active_discount_pct", "active_discount_ingredient", "active_discount_expiry_date"]  # tambahan
         read_only_fields = ["created_at"]
  
     def get_unit_cost(self, obj):

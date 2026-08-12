@@ -66,6 +66,18 @@ class InsufficientStockError(Exception):
             f"Stok '{ingredient_name}' gak cukup: tersedia {available}, butuh {required}"
         )
 
+def _effective_unit_price(menu):
+    if menu.active_discount_pct and menu.active_discount_ingredient_id:
+        ing = menu.active_discount_ingredient
+        expired = menu.active_discount_expiry_date and menu.active_discount_expiry_date < date.today()
+        if ing.current_stock <= 0 or expired:
+            menu.active_discount_pct = None
+            menu.active_discount_ingredient = None
+            menu.active_discount_expiry_date = None
+            menu.save(update_fields=["active_discount_pct", "active_discount_ingredient", "active_discount_expiry_date"])
+        else:
+            return menu.sell_price * (1 - menu.active_discount_pct / 100)
+    return menu.sell_price
 
 @transaction.atomic
 def record_sale(business, user, sale_date, items):
@@ -87,7 +99,8 @@ def record_sale(business, user, sale_date, items):
         # snapshot price and cost at sale time
         SaleItem.objects.create(
             sale=sale, menu=menu, quantity=qty,
-            unit_price=menu.sell_price, unit_cost=menu.unit_cost(),
+            unit_price=_effective_unit_price(menu), 
+            unit_cost=menu.unit_cost(),
         )
 
         # deduct each recipe ingredient from stock (locked to avoid a

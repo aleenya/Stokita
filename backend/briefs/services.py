@@ -3,20 +3,45 @@ from datetime import date, timedelta
 
 from django.db.models import F, DecimalField, ExpressionWrapper, Sum
 from inventory.models import Ingredient, StockMovement
+from menus.models import Menu
 from sales.models import SaleItem
-from sales.services import compute_menu_profit_states
+from sales.services import classify_margin_state
 from .models import DailyBrief, BriefAction, ActionImpactCheck
 from .ai import generate_recommendations, analyze_impact
 from django.utils import timezone
 
-def _build_context(business):
-    # ingredients snapshot
-    ingredients = [{
-        "id": str(i.id), "name": i.name, "unit": i.unit,
-        "current_stock": float(i.current_stock),
-        "low_stock_threshold": float(i.low_stock_threshold) if i.low_stock_threshold else None,
-    } for i in Ingredient.objects.filter(business=business)]
+BRIEF_COOLDOWN = timedelta(hours=24)
 
+
+class BriefCooldownError(Exception):
+    """Raised when owner tries to generate before the 24h cooldown is over."""
+    def __init__(self, next_available_at):
+        self.next_available_at = next_available_at
+        super().__init__(f"Brief masih cooldown sampai {next_available_at.isoformat()}")
+
+
+def get_brief_cooldown_status(business):
+    """
+    Return (last_brief_or_None, can_generate_now: bool, next_available_at_or_None).
+    Dipakai baik oleh generate_daily_brief() maupun GET /briefs/today
+    (buat nampilin status tombol generate di frontend).
+    """
+    last = DailyBrief.objects.filter(business=business).order_by("-created_at").first()
+    if not last:
+        return None, True, None
+
+    next_available_at = last.created_at + BRIEF_COOLDOWN
+    if timezone.now() >= next_available_at:
+        return last, True, None
+    return last, False, next_available_at
+
+
+def _build_pricing_context(business):
+    """
+    Context buat AI — SENGAJA cuma soal harga. Ingredients & stock
+    threshold TIDAK dikirim ke sini; itu domain inventory app (live
+    endpoint), gak masuk brief ini.
+    """
     # profit states (reuse F3 logic)
     profit = []
     for menu in Menu.objects.filter(business=business):
@@ -47,35 +72,37 @@ def _build_context(business):
         "id": str(m.ingredient.id), "name": m.ingredient.name,
     } for m in expiring]
 
-    return {"ingredients": ingredients, "profit": profit, "expiring_soon": expiring_soon}
+    return {"profit": profit, "expiring_soon": expiring_soon}
 
 
-def generate_daily_brief(business, brief_date=None, force=False):
+def generate_daily_brief(business):
     """
-    Generate (or return existing) brief for the day.
+    Generate brief baru. TIDAK ADA lagi 'force' atau get_or_create by date —
+    satu-satunya gate adalah cooldown 24 jam berbasis timestamp
+    (lihat get_brief_cooldown_status). Kalau masih dalam cooldown,
+    raise BriefCooldownError; caller (view) yang tangani jadi HTTP 429.
 
-    Kalau brief hari ini SUDAH ada dan force=False, langsung return brief
-    yang ada tanpa manggil AI lagi — jadi tombol "Generate" di empty state
-    aman diklik berkali-kali (misal double-click) tanpa boros API call.
-
-    force=True (dari tombol "Regenerate" manual) selalu bikin ulang.
+    Brief ini SEKARANG CUMA berisi rekomendasi HARGA (discount/review_menu).
+    Restock & expiry alert TIDAK lagi bagian dari brief — itu status stok
+    real-time, dilayani inventory app lewat endpoint sendiri yang selalu
+    fresh (GET /ingredients/low-stock/, GET /ingredients/expiring/),
+    gak kena cooldown 24 jam, dan gak checklist-able seperti actions di sini.
     """
-    brief_date = brief_date or date.today()
-    brief, created = DailyBrief.objects.get_or_create(business=business, brief_date=brief_date)
+    last, can_generate, next_available_at = get_brief_cooldown_status(business)
+    if not can_generate:
+        raise BriefCooldownError(next_available_at)
 
-    if not created and not force:
-        return brief  # udah ada hari ini, gak usah panggil AI lagi
+    brief = DailyBrief.objects.create(business=business, brief_date=date.today())
 
-    brief.actions.all().delete()
-
-    context = _build_context(business)
-    actions = generate_recommendations(context)
+    actions = generate_recommendations(_build_pricing_context(business))
 
     for a in actions:
         BriefAction.objects.create(
             brief=brief,
             action_type=a["action_type"],
+            title=a["title"],
             message=a["message"],
+            discount_pct=a.get("discount_pct"),
             related_menu_id=a.get("related_menu_id"),
             related_ingredient_id=a.get("related_ingredient_id"),
             rupiah_impact=a.get("rupiah_impact", 0),
@@ -120,9 +147,7 @@ def _capture_snapshot(action):
         })
 
     if action.related_ingredient_id:
-        ing = Ingredient.objects.filter(
-            id=action.related_ingredient_id, business=action.brief.business
-        ).first()
+        ing = Ingredient.objects.filter(id=action.related_ingredient_id).first()
         if ing:
             snapshot["ingredient_current_stock"] = float(ing.current_stock)
 
@@ -130,7 +155,15 @@ def _capture_snapshot(action):
 
 
 def mark_action_acted(action):
-    """Dipanggil pas user centang aksi di brief (status -> acted)."""
+    """
+    Dipanggil pas user checklist action di brief (status -> acted).
+
+    TODO (nunggu file menus/models.py & sales creation logic): kalau
+    action.action_type == "discount", di sini juga harus ngaktifin
+    diskon di Menu terkait (action.related_menu, action.discount_pct),
+    dengan kondisi mati "stok 0 ATAU expired, mana yg duluan" — belum
+    diimplement karena butuh liat struktur Menu & kode POST /sales dulu.
+    """
     action.status = BriefAction.ACTED
     action.acted_at = timezone.now()
     action.baseline_snapshot = _capture_snapshot(action)
