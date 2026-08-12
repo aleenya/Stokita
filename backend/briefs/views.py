@@ -7,10 +7,11 @@ from .serializers import DailyBriefSerializer
 from .services import generate_daily_brief
 from rest_framework.permissions import IsAuthenticated
 from accounts.permissions import IsOwner
+from accounts.permissions import feature_required
  
  
 class BriefViewSet(viewsets.ViewSet):
-    permission_classes = [IsAuthenticated, IsOwner]
+    permission_classes = [IsAuthenticated, feature_required("brief")]
 
     def _get_business(self):
         return self.request.user.business
@@ -31,7 +32,7 @@ class BriefViewSet(viewsets.ViewSet):
  
  
 class BriefActionViewSet(viewsets.ViewSet):
-    permission_classes = [IsAuthenticated, IsOwner]
+    permission_classes = [IsAuthenticated, feature_required("brief")]
 
     def partial_update(self, request, pk=None):
         try:

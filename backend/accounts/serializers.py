@@ -17,3 +17,17 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_full_name(self, obj):
         return obj.get_full_name()
+
+class StaffSerializer(serializers.ModelSerializer):
+    full_name = serializers.SerializerMethodField()
+    granted_features = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ["id", "username", "full_name", "role", "granted_features"]
+
+    def get_full_name(self, obj):
+        return obj.get_full_name()
+
+    def get_granted_features(self, obj):
+        return list(obj.feature_grants.values_list("feature", flat=True))

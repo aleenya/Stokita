@@ -8,6 +8,7 @@ from datetime import date, timedelta
 from .ai import estimate_shelf_life, parse_receipt
 from rest_framework.permissions import IsAuthenticated
 from accounts.permissions import IsOwner
+from accounts.permissions import feature_required
  
  
 class IngredientViewSet(viewsets.ModelViewSet):
@@ -15,7 +16,7 @@ class IngredientViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ["create", "update", "partial_update", "destroy"]:
-            return [IsAuthenticated(), IsOwner()]
+            return [IsAuthenticated(), feature_required("ingredients_manage")()]
         return [IsAuthenticated()]
  
     def get_queryset(self):
