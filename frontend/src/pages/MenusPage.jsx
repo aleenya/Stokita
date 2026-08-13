@@ -32,7 +32,7 @@ const TONE_BADGE = {
 
 /* =========================================================================
    ICONS — inline SVG, stroke-based (sama konvensi kayak Sidebar.jsx /
-   IngredientsPage.jsx), gak nambah dependency icon library baru.
+   IngredientsPage.jsx), tidak nambah dependency icon library baru.
    ========================================================================= */
 const ic = {
   className: 'w-4 h-4', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
@@ -104,7 +104,7 @@ function marginPct(menu) {
 
 function marginIssueLabel(menu) {
   const cost = Number(menu.unit_cost) || 0
-  if (cost < 0) return 'Data biaya gak valid'
+  if (cost < 0) return 'Data biaya tidak valid'
   if (menu.recipe_lines.length === 0) return 'Belum ada resep'
   if (cost === 0) return 'Biaya ingredient belum diisi'
   return null
@@ -804,7 +804,7 @@ export default function MenusPage({ onLogout }) {
         ) : visibleMenus.length === 0 ? (
           <div className="py-16 text-center">
             <p className="text-[#5B6B82]">
-              {menus.length === 0 ? 'Belum ada menu. Tambahkan yang pertama.' : 'Gak ada menu yang cocok sama filter ini.'}
+              {menus.length === 0 ? 'Belum ada menu. Tambahkan yang pertama.' : 'Tidak ada menu yang cocok sama filter ini.'}
             </p>
           </div>
         ) : (

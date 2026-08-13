@@ -733,7 +733,7 @@ export default function ProfitPage() {
               <section>
                 <h2 className="text-[17px] font-bold text-[#18233D] mb-3">Performa Menu</h2>
                 {breakdown.every((r) => r.qty === 0) ? (
-                  <EmptyState title="Gak ada penjualan di periode ini." body="Pilih rentang tanggal yang lebih luas buat bandingin menu." />
+                  <EmptyState title="Tidak ada penjualan di periode ini." body="Pilih rentang tanggal yang lebih luas buat bandingin menu." />
                 ) : (
                   <p className="text-xs text-[#8B96A6] mb-3">
                     Tren membandingkan <span className="font-medium text-[#5B6B82]">{rangeLabelText(overview.range)}</span> dengan periode sebelumnya yang durasinya sama, <span className="font-medium text-[#5B6B82]">{rangeLabelText(overview.previous_range)}</span>.
@@ -805,7 +805,7 @@ export default function ProfitPage() {
               ) : compareLoading || compareData === null ? (
                 <p className="text-sm text-[#5B6B82] px-1 py-10 text-center">Memuat...</p>
               ) : !compareData.a || !compareData.b ? (
-                <EmptyState title="Salah satu menu gak ketemu." body="Menu ini mungkin baru aja dihapus — pilih ulang menunya di atas." />
+                <EmptyState title="Salah satu menu tidak ketemu." body="Menu ini mungkin baru aja dihapus — pilih ulang menunya di atas." />
               ) : (
                 <CompareTable data={compareData} />
               )}

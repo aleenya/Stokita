@@ -391,7 +391,7 @@ function CsvImportSection({ menus, onImported }) {
     // a stray "2.5" can't silently sink the whole import.
     const validRows = rows.filter((r) => r.menu_id && Math.round(Number(r.quantity)) > 0)
     if (validRows.length === 0) {
-      setError('Gak ada baris valid buat direcord — pilih menu & pastiin qty > 0 di minimal 1 baris.')
+      setError('Tidak ada baris valid buat direcord — pilih menu & pastiin qty > 0 di minimal 1 baris.')
       return
     }
     const aggregated = {}

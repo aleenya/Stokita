@@ -3,7 +3,7 @@ import api from '../api/client'
 import GoogleSignInButton from '../components/GoogleSignInButton'
 
 // Cuma buat nampilin email-nya di UI — verifikasi asli tetep di backend,
-// ini gak dipakai buat keputusan keamanan apa pun.
+// ini tidak dipakai buat keputusan keamanan apa pun.
 function decodeGoogleEmail(credential) {
   try {
     return JSON.parse(atob(credential.split('.')[1])).email || ''
@@ -291,7 +291,7 @@ export default function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
                   placeholder="dapur-stokita"
                 />
                 <p className="text-xs text-[#8B96A6] mt-1.5">
-                  Kita bakal tambahin string acak di belakangnya biar aman, jadi kodenya gak gampang ditebak.
+                  Kita bakal tambahin string acak di belakangnya biar aman, jadi kodenya tidak gampang ditebak.
                   Kode lengkapnya bisa kamu lihat di halaman Staff setelah daftar.
                 </p>
               </div>

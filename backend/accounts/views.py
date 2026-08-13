@@ -95,7 +95,7 @@ class GoogleLoginView(APIView):
         try:
             info = verify_google_token(credential)
         except ValueError:
-            return Response({"error": "Token Google gak valid."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Token Google tidak valid."}, status=status.HTTP_400_BAD_REQUEST)
 
         user = User.objects.filter(google_sub=info["sub"]).first()
         if user is None:
@@ -130,7 +130,7 @@ class GoogleLinkView(APIView):
         try:
             info = verify_google_token(credential)
         except ValueError:
-            return Response({"error": "Token Google gak valid."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Token Google tidak valid."}, status=status.HTTP_400_BAD_REQUEST)
 
         if User.objects.filter(google_sub=info["sub"]).exclude(pk=request.user.pk).exists():
             return Response(
