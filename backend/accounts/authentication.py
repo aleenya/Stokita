@@ -39,7 +39,7 @@ class CookieJWTAuthentication(JWTAuthentication):
         check.process_request(request)
         reason = check.process_view(request, None, (), {})
         if reason:
-            raise exceptions.PermissionDenied(f"CSRF Failed: {reason}")
+            raise exceptions.PermissionDenied(f"Verifikasi CSRF gagal: {reason}")
 
     def get_user(self, validated_token):
         """Same as JWTAuthentication.get_user(), but select_related the
@@ -48,16 +48,16 @@ class CookieJWTAuthentication(JWTAuthentication):
         try:
             user_id = validated_token[api_settings.USER_ID_CLAIM]
         except KeyError:
-            raise InvalidToken("Token contained no recognizable user identification")
+            raise InvalidToken("Token tidak berisi identitas user yang valid")
 
         try:
             user = self.user_model.objects.select_related("business").get(
                 **{api_settings.USER_ID_FIELD: user_id}
             )
         except self.user_model.DoesNotExist:
-            raise exceptions.AuthenticationFailed("User not found", code="user_not_found")
+            raise exceptions.AuthenticationFailed("User tidak ditemukan", code="user_not_found")
 
         if api_settings.CHECK_USER_IS_ACTIVE and not user.is_active:
-            raise exceptions.AuthenticationFailed("User is inactive", code="user_inactive")
+            raise exceptions.AuthenticationFailed("User nonaktif", code="user_inactive")
 
         return user

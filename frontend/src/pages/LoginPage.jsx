@@ -83,16 +83,16 @@ function HeroVisual() {
         className="absolute left-2 top-2 rounded-lg bg-white/[0.07] backdrop-blur-sm border border-white/10 px-3.5 py-2.5"
         style={{ animation: 'fadeInUp 0.5s ease-out 0.9s both, floatChip 4s ease-in-out 1.4s infinite' }}
       >
-        <p className="text-[10px] font-bold tracking-[0.1em] uppercase text-white/45 mb-0.5">Margin trend</p>
-        <p className="text-sm font-bold text-white">+18% this week</p>
+        <p className="text-[10px] font-bold tracking-[0.1em] uppercase text-white/45 mb-0.5">Tren margin</p>
+        <p className="text-sm font-bold text-white">+18% minggu ini</p>
       </div>
 
       <div
         className="absolute right-4 bottom-2 rounded-lg bg-white/[0.07] backdrop-blur-sm border border-white/10 px-3.5 py-2.5"
         style={{ animation: 'fadeInUp 0.5s ease-out 1.15s both, floatChip 4s ease-in-out 1.7s infinite' }}
       >
-        <p className="text-[10px] font-bold tracking-[0.1em] uppercase text-white/45 mb-0.5">Stock sync</p>
-        <p className="text-sm font-bold text-white">Live · every sale</p>
+        <p className="text-[10px] font-bold tracking-[0.1em] uppercase text-white/45 mb-0.5">Sinkronisasi stok</p>
+        <p className="text-sm font-bold text-white">Live · tiap ada penjualan</p>
       </div>
     </div>
   )
@@ -173,10 +173,10 @@ export default function LoginPage({ onLoginSuccess, onSwitchToRegister }) {
           </div>
 
           <h1 className="font-extrabold text-4xl md:text-5xl leading-[1.1] tracking-tight max-w-md">
-            What should you do today?
+            Apa yang harus kamu lakuin hari ini?
           </h1>
           <p className="mt-5 text-white/70 text-base max-w-sm leading-relaxed">
-            Sign in to see today's stock risks, profit leaks, and what to buy — before the day gets away from you.
+            Login buat liat risiko stok, kebocoran profit, dan apa yang perlu dibeli hari ini — sebelum harinya keburu lewat.
           </p>
         </div>
 
@@ -190,10 +190,10 @@ export default function LoginPage({ onLoginSuccess, onSwitchToRegister }) {
       <div className="md:w-1/2 bg-[#F7F5F0] flex items-center justify-center px-8 py-12 md:p-14">
         <div className="w-full max-w-sm">
           <h2 className="text-2xl font-extrabold tracking-tight text-[#18233D] mb-1">
-            Welcome back
+            Selamat datang kembali
           </h2>
           <p className="text-sm text-[#5B6B82] mb-8">
-            Sign in with the account your owner set up for you.
+            Login pake akun yang udah dibuatin owner kamu.
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-5" noValidate>
@@ -230,7 +230,7 @@ export default function LoginPage({ onLoginSuccess, onSwitchToRegister }) {
             {error && <p className={ERROR_BANNER}>{error}</p>}
 
             <button type="submit" disabled={loading} className={BTN_PRIMARY}>
-              {loading ? 'Signing in…' : 'Sign in'}
+              {loading ? 'Lagi login…' : 'Login'}
             </button>
           </form>
 
@@ -243,13 +243,13 @@ export default function LoginPage({ onLoginSuccess, onSwitchToRegister }) {
           <GoogleSignInButton onCredential={handleGoogleCredential} disabled={loading} />
 
           <p className="mt-8 text-sm text-[#5B6B82] text-center">
-            Don't have an account?{' '}
+            Belum punya akun?{' '}
             <button
               type="button"
               onClick={onSwitchToRegister}
               className="text-[#28579C] font-semibold hover:text-[#1E4278] transition-colors"
             >
-              Create one
+              Buat akun
             </button>
           </p>
         </div>

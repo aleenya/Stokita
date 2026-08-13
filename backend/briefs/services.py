@@ -12,6 +12,7 @@ from .ai import generate_recommendations, analyze_impact
 from django.utils import timezone
 
 BRIEF_COOLDOWN = timedelta(hours=24)
+IMPACT_COOLDOWN = timedelta(days=3)
 
 
 class BriefCooldownError(Exception):
@@ -19,6 +20,18 @@ class BriefCooldownError(Exception):
     def __init__(self, next_available_at):
         self.next_available_at = next_available_at
         super().__init__(f"Brief masih cooldown sampai {next_available_at.isoformat()}")
+
+
+class ImpactCooldownError(Exception):
+    """Raised when impact summary is generated before the 3-day cooldown."""
+    def __init__(self, next_available_at):
+        self.next_available_at = next_available_at
+        super().__init__(f"Impact summary masih cooldown sampai {next_available_at.isoformat()}")
+
+
+class NoEligibleActionsError(Exception):
+    """Raised when there are no acted actions with enough data to analyze."""
+    pass
 
 
 def get_brief_cooldown_status(business):
@@ -103,7 +116,7 @@ def generate_daily_brief(business):
             discount_ingredient_expiry_date=expiry_by_ingredient.get(a.get("related_ingredient_id")),
         )
 
-    brief.summary = f"{len(actions_data)} actions to protect margin today"
+    brief.summary = f"{len(actions_data)} aksi untuk jaga margin hari ini"
     brief.save(update_fields=["summary"])
     return brief
 
@@ -167,6 +180,24 @@ def mark_action_acted(action):
     action.save(update_fields=["status", "acted_at", "baseline_snapshot"])
     return action
 
+def get_impact_cooldown_status(business):
+    """
+    Return (last_check_or_None, can_generate_now: bool, next_available_at_or_None).
+    Dipakai baik oleh generate_weekly_impact_checks() maupun GET /briefs/impact-history
+    buat nampilin status tombol generate di frontend.
+    """
+    last = ActionImpactCheck.objects.filter(
+        action__brief__business=business,
+    ).order_by("-created_at").first()
+    if not last:
+        return None, True, None
+
+    next_available_at = last.created_at + IMPACT_COOLDOWN
+    if timezone.now() >= next_available_at:
+        return last, True, None
+    return last, False, next_available_at
+
+
 def generate_weekly_impact_checks(business, week_start=None, force=False):
     """
     Jalanin pengecekan dampak buat semua acted action milik `business`
@@ -179,6 +210,12 @@ def generate_weekly_impact_checks(business, week_start=None, force=False):
 
     Return list of ActionImpactCheck yang baru dibuat.
     """
+    # ---- Cooldown gate (3 hari) ----
+    if not force:
+        _, can_generate, next_available_at = get_impact_cooldown_status(business)
+        if not can_generate:
+            raise ImpactCooldownError(next_available_at)
+
     week_start = week_start or _get_week_start()
     cutoff = timezone.now() - timedelta(days=30)
 
@@ -191,6 +228,12 @@ def generate_weekly_impact_checks(business, week_start=None, force=False):
     ).exclude(
         impact_checks__week_start=week_start,  # udah pernah dicek minggu ini, skip
     )
+
+    if not eligible_actions.exists():
+        raise NoEligibleActionsError(
+            "Belum ada aksi yang bisa dianalisis — pastikan ada decision yang sudah di-act "
+            "dalam 30 hari terakhir dan memiliki data penjualan."
+        )
 
     created = []
     for act in eligible_actions:

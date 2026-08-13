@@ -18,10 +18,11 @@ class DailyBriefSerializer(serializers.ModelSerializer):
 
 
 class ActionImpactCheckSerializer(serializers.ModelSerializer):
+    action_title = serializers.CharField(source="action.title", read_only=True)
     action_message = serializers.CharField(source="action.message", read_only=True)
     action_type = serializers.CharField(source="action.action_type", read_only=True)
 
     class Meta:
         model = ActionImpactCheck
-        fields = ["id", "action", "action_message", "action_type",
+        fields = ["id", "action", "action_title", "action_message", "action_type",
                   "week_start", "followup_snapshot", "answer", "reasoning", "created_at"]

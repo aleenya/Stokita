@@ -64,7 +64,7 @@ class MenuViewSet(viewsets.ModelViewSet):
         foreign_ids = [str(i) for i in ingredient_ids if i not in owned_ids]
         if foreign_ids:
             return Response(
-                {"error": f"Ingredient(s) not found in your business: {foreign_ids}"},
+                {"error": f"Ingredient gak ketemu di business kamu: {foreign_ids}"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

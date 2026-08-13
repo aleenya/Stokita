@@ -73,7 +73,7 @@ class IngredientViewSet(viewsets.ModelViewSet):
             return Response({"error": "change_qty/total_cost harus berupa angka."},
                             status=status.HTTP_400_BAD_REQUEST)
         if qty <= 0:
-            return Response({"error": "change_qty must be positive"},
+            return Response({"error": "change_qty harus lebih dari 0"},
                             status=status.HTTP_400_BAD_REQUEST)
         expiry = request.data.get("expiry_date")
         ingredient = apply_restock(
