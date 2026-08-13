@@ -638,7 +638,7 @@ export default function ProfitPage() {
 
       <div className="bg-white rounded-2xl px-4 py-3 mb-6">
         <div className="inline-flex rounded-full bg-[#F7F5F0] p-1 gap-1">
-          {[{ id: 'overview', label: 'Overview' }, { id: 'compare', label: 'Compare Menus' }, { id: 'feedback', label: 'Decision Feedback' }].map((t) => (
+          {[{ id: 'overview', label: 'Ringkasan' }, { id: 'compare', label: 'Bandingkan Menu' }, { id: 'feedback', label: 'Decision Feedback' }].map((t) => (
             <button
               key={t.id}
               type="button"
