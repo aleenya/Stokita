@@ -1,6 +1,7 @@
 """F6: build the day's brief from current data, using F5's recommendation engine."""
 from datetime import date, timedelta
 
+from django.db import transaction
 from django.db.models import F, DecimalField, ExpressionWrapper, Sum
 from inventory.models import Ingredient, StockMovement
 from menus.models import Menu
@@ -70,33 +71,26 @@ def _build_pricing_context(business):
     ).select_related("ingredient")
     expiring_soon = [{
         "id": str(m.ingredient.id), "name": m.ingredient.name,
+        "name": m.ingredient.name,
+        "expiry_date": m.expiry_date.isoformat(),
     } for m in expiring]
 
     return {"profit": profit, "expiring_soon": expiring_soon}
 
 
+@transaction.atomic
 def generate_daily_brief(business):
-    """
-    Generate brief baru. TIDAK ADA lagi 'force' atau get_or_create by date —
-    satu-satunya gate adalah cooldown 24 jam berbasis timestamp
-    (lihat get_brief_cooldown_status). Kalau masih dalam cooldown,
-    raise BriefCooldownError; caller (view) yang tangani jadi HTTP 429.
-
-    Brief ini SEKARANG CUMA berisi rekomendasi HARGA (discount/review_menu).
-    Restock & expiry alert TIDAK lagi bagian dari brief — itu status stok
-    real-time, dilayani inventory app lewat endpoint sendiri yang selalu
-    fresh (GET /ingredients/low-stock/, GET /ingredients/expiring/),
-    gak kena cooldown 24 jam, dan gak checklist-able seperti actions di sini.
-    """
     last, can_generate, next_available_at = get_brief_cooldown_status(business)
     if not can_generate:
         raise BriefCooldownError(next_available_at)
 
+    context = _build_pricing_context(business)
+    actions_data = generate_recommendations(context)  # kalau ini raise, apapun di bawah gak pernah kesave
+
     brief = DailyBrief.objects.create(business=business, brief_date=date.today())
+    expiry_by_ingredient = {e["id"]: e["expiry_date"] for e in context["expiring_soon"]}
 
-    actions = generate_recommendations(_build_pricing_context(business))
-
-    for a in actions:
+    for a in actions_data:
         BriefAction.objects.create(
             brief=brief,
             action_type=a["action_type"],
@@ -106,9 +100,10 @@ def generate_daily_brief(business):
             related_menu_id=a.get("related_menu_id"),
             related_ingredient_id=a.get("related_ingredient_id"),
             rupiah_impact=a.get("rupiah_impact", 0),
+            discount_ingredient_expiry_date=expiry_by_ingredient.get(a.get("related_ingredient_id")),
         )
 
-    brief.summary = f"{len(actions)} actions to protect margin today"
+    brief.summary = f"{len(actions_data)} actions to protect margin today"
     brief.save(update_fields=["summary"])
     return brief
 
@@ -155,21 +150,22 @@ def _capture_snapshot(action):
 
 
 def mark_action_acted(action):
-    """
-    Dipanggil pas user checklist action di brief (status -> acted).
+    if action.action_type == BriefAction.DISCOUNT and action.related_ingredient_id:
+        affected_menus = Menu.objects.filter(
+            recipe_lines__ingredient_id=action.related_ingredient_id,
+            business=action.brief.business,
+        ).distinct()
+        for menu in affected_menus:
+            menu.active_discount_pct = action.discount_pct
+            menu.active_discount_ingredient_id = action.related_ingredient_id
+            menu.active_discount_expiry_date = action.discount_ingredient_expiry_date
+            menu.save(update_fields=["active_discount_pct", "active_discount_ingredient", "active_discount_expiry_date"])
 
-    TODO (nunggu file menus/models.py & sales creation logic): kalau
-    action.action_type == "discount", di sini juga harus ngaktifin
-    diskon di Menu terkait (action.related_menu, action.discount_pct),
-    dengan kondisi mati "stok 0 ATAU expired, mana yg duluan" — belum
-    diimplement karena butuh liat struktur Menu & kode POST /sales dulu.
-    """
     action.status = BriefAction.ACTED
     action.acted_at = timezone.now()
     action.baseline_snapshot = _capture_snapshot(action)
     action.save(update_fields=["status", "acted_at", "baseline_snapshot"])
     return action
-
 
 def generate_weekly_impact_checks(business, week_start=None, force=False):
     """
