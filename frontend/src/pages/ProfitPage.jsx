@@ -106,10 +106,10 @@ const extractList = (data) => {
    ========================================================================= */
 
 const ANSWER_META = {
-  positive:      { label: 'Positive',      tone: 'success',  icon: '✓' },
-  negative:      { label: 'Negative',      tone: 'critical', icon: '✗' },
-  inconclusive:  { label: 'Inconclusive',  tone: 'muted',    icon: '?' },
-  external:      { label: 'Likely External', tone: 'warning', icon: '↗' },
+  positive:      { label: 'Positif',      tone: 'success',  icon: '✓' },
+  negative:      { label: 'Negatif',      tone: 'critical', icon: '✗' },
+  inconclusive:  { label: 'Belum Pasti',  tone: 'muted',    icon: '?' },
+  external:      { label: 'Faktor Eksternal', tone: 'warning', icon: '↗' },
 }
 
 function ImpactCountdown({ target }) {
@@ -121,20 +121,20 @@ function ImpactCountdown({ target }) {
   }, [target])
   if (!target) return null
   let diff = new Date(target).getTime() - now
-  if (diff <= 0) return <>Ready to generate</>
+  if (diff <= 0) return <>Siap digenerate</>
   const d = Math.floor(diff / 86400000)
   const h = Math.floor((diff % 86400000) / 3600000)
   const m = Math.floor((diff % 3600000) / 60000)
   const s = Math.floor((diff % 60000) / 1000)
   const pad = (n) => String(n).padStart(2, '0')
-  return <>Next in {d > 0 ? `${d}d ` : ''}{pad(h)}:{pad(m)}:{pad(s)}</>
+  return <>Berikutnya dalam {d > 0 ? `${d}h ` : ''}{pad(h)}:{pad(m)}:{pad(s)}</>
 }
 
 function FeedbackActionCard({ action, impacts, isPast }) {
   const [isOpen, setIsOpen] = useState(false)
   const typeBadge = action.action_type === 'discount'
-    ? { label: `Discount ${action.discount_pct ?? ''}%`.trim(), tone: 'warning' }
-    : { label: 'Review Price', tone: 'teal' }
+    ? { label: `Diskon ${action.discount_pct ?? ''}%`.trim(), tone: 'warning' }
+    : { label: 'Review Harga', tone: 'teal' }
 
   const latestImpact = impacts.length > 0 ? impacts[0] : null
 
@@ -156,7 +156,7 @@ function FeedbackActionCard({ action, impacts, isPast }) {
             </p>
             {isPast && (
               <span className={`text-[10px] font-bold uppercase tracking-wider ${TONE_BADGE.muted} rounded-full px-2 py-0.5 shrink-0`}>
-                Past
+                Lalu
               </span>
             )}
           </div>
@@ -192,7 +192,7 @@ function FeedbackActionCard({ action, impacts, isPast }) {
           <div className="px-4 sm:px-5 py-3 bg-[#FAFAF8]">
             <p className="text-sm text-[#5B6B82] leading-relaxed">{action.message}</p>
             <p className="text-[11px] font-medium text-[#8B96A6] mt-2">
-              Acted {fmtDateTime(action.acted_at)}
+              Ditangani {fmtDateTime(action.acted_at)}
             </p>
           </div>
 
@@ -200,7 +200,7 @@ function FeedbackActionCard({ action, impacts, isPast }) {
           {impacts.length > 0 ? (
             <div className="px-4 sm:px-5 py-3 space-y-3">
               <p className="text-[11px] font-bold text-[#8B96A6] uppercase tracking-wide">
-                Impact Analysis{impacts.length > 1 ? ` (${impacts.length} checks)` : ''}
+                Analisis Dampak{impacts.length > 1 ? ` (${impacts.length} pengecekan)` : ''}
               </p>
               {impacts.map((check) => {
                 const meta = ANSWER_META[check.answer] || ANSWER_META.inconclusive
@@ -223,8 +223,8 @@ function FeedbackActionCard({ action, impacts, isPast }) {
             <div className="px-4 sm:px-5 py-3">
               <p className="text-sm text-[#8B96A6] italic">
                 {isPast
-                  ? 'No summary was generated for this action.'
-                  : 'No impact summary yet — generate one using the button above.'}
+                  ? 'Tidak ada rangkuman dampak untuk aksi ini.'
+                  : 'Belum ada rangkuman dampak — generate sekarang pakai tombol di atas.'}
               </p>
             </div>
           )}
@@ -351,10 +351,10 @@ function DecisionFeedbackTab() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h2 className="text-[15px] font-bold text-[#18233D]">
-              AI Impact Summary
+              Rangkuman Dampak AI
             </h2>
             <p className="text-sm text-[#5B6B82] mt-0.5">
-              Generate an AI analysis of how your recent decisions impacted performance.
+              Generate analisis AI tentang dampak keputusan kamu terhadap performa.
             </p>
           </div>
           <button
@@ -363,29 +363,29 @@ function DecisionFeedbackTab() {
             disabled={generating || !canGenerate || activeActions.length === 0}
             title={
               activeActions.length === 0
-                ? 'No active decisions to analyze'
+                ? 'Tidak ada keputusan aktif untuk dianalisis'
                 : !canGenerate && nextGenerateAt
-                  ? `Available after ${fmtDateTime(nextGenerateAt)}`
+                  ? `Tersedia setelah ${fmtDateTime(nextGenerateAt)}`
                   : undefined
             }
             className="shrink-0 text-sm font-semibold text-white bg-[#28579C] hover:bg-[#1E4278] disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-full px-5 py-2.5"
           >
             {generating
-              ? 'Generating…'
+              ? 'Memproses…'
               : !canGenerate
                 ? <ImpactCountdown target={nextGenerateAt} />
                 : activeActions.length === 0
-                  ? 'No eligible actions'
-                  : 'Generate Impact Summary'}
+                  ? 'Tidak ada aksi yang valid'
+                  : 'Generate Rangkuman Dampak'}
           </button>
         </div>
       </div>
 
       {noActions ? (
         <div className={`bg-white rounded-xl ${SHADOW_CARD} px-5 py-8 text-center`}>
-          <p className="text-sm font-semibold text-[#18233D]">No decisions yet.</p>
+          <p className="text-sm font-semibold text-[#18233D]">Belum ada keputusan.</p>
           <p className="text-sm text-[#5B6B82] mt-1">
-            When you act on a recommendation in the Dashboard (discount or review menu), it will appear here for impact tracking.
+            Saat kamu memproses rekomendasi di Dashboard (diskon atau review harga), rekomendasi tersebut akan muncul di sini untuk dilacak dampaknya.
           </p>
         </div>
       ) : (
@@ -394,8 +394,8 @@ function DecisionFeedbackTab() {
           {activeActions.length > 0 && (
             <section>
               <p className="text-xs font-bold text-[#8B96A6] uppercase tracking-wide mb-3">
-                Active Decisions
-                <span className="ml-2 text-[#28579C] font-semibold normal-case">last 30 days</span>
+                Keputusan Aktif
+                <span className="ml-2 text-[#28579C] font-semibold normal-case">30 hari terakhir</span>
               </p>
               <div className="space-y-2.5">
                 {activeActions.map((a) => (
@@ -414,8 +414,8 @@ function DecisionFeedbackTab() {
           {pastActions.length > 0 && (
             <section>
               <p className="text-xs font-bold text-[#8B96A6] uppercase tracking-wide mb-3">
-                Past Decisions
-                <span className="ml-2 text-[#5B6B82] font-semibold normal-case">older than 30 days</span>
+                Keputusan Lalu
+                <span className="ml-2 text-[#5B6B82] font-semibold normal-case">lebih dari 30 hari</span>
               </p>
               <div className="space-y-2.5">
                 {pastActions.map((a) => (
@@ -638,7 +638,7 @@ export default function ProfitPage() {
 
       <div className="bg-white rounded-2xl px-4 py-3 mb-6">
         <div className="inline-flex rounded-full bg-[#F7F5F0] p-1 gap-1">
-          {[{ id: 'overview', label: 'Ringkasan' }, { id: 'compare', label: 'Bandingkan Menu' }, { id: 'feedback', label: 'Decision Feedback' }].map((t) => (
+          {[{ id: 'overview', label: 'Ringkasan' }, { id: 'compare', label: 'Bandingkan Menu' }, { id: 'feedback', label: 'Evaluasi Keputusan' }].map((t) => (
             <button
               key={t.id}
               type="button"
