@@ -273,7 +273,12 @@ def record_sale(business, user, sale_date, items):
     """
     sale = Sale.objects.create(business=business, sale_date=sale_date, recorded_by=user)
 
-    for line in items:
+    # Locked in a fixed order (by menu_id) so two concurrent sales that
+    # share menus never lock them in opposite order — without this, sale A
+    # ["menu1", "menu2"] racing sale B ["menu2", "menu1"] could each hold
+    # one lock and wait on the other forever until Postgres kills one with
+    # a deadlock error.
+    for line in sorted(items, key=lambda l: str(l["menu_id"])):
         menu = Menu.objects.select_for_update().get(
             id=line["menu_id"], business=business, is_active=True,
         )
@@ -282,13 +287,16 @@ def record_sale(business, user, sale_date, items):
         # snapshot price and cost at sale time
         SaleItem.objects.create(
             sale=sale, menu=menu, quantity=qty,
-            unit_price=_effective_unit_price(menu), 
+            unit_price=_effective_unit_price(menu),
             unit_cost=menu.unit_cost(),
         )
 
         # deduct each recipe ingredient from stock (locked to avoid a
-        # concurrent sale reading the same stock before this one commits)
-        for recipe_line in menu.recipe_lines.select_related("ingredient").select_for_update():
+        # concurrent sale reading the same stock before this one commits;
+        # ordered by ingredient_id for the same deadlock-avoidance reason
+        # as the menu lock order above — two menus sharing ingredients
+        # must always lock them in the same order)
+        for recipe_line in menu.recipe_lines.select_related("ingredient").select_for_update().order_by("ingredient_id"):
             used = recipe_line.qty_per_serving * qty
             ingredient = recipe_line.ingredient
             if ingredient.current_stock < used:
