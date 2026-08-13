@@ -195,17 +195,5 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
- 
 GEMINI_API_KEY = config("GEMINI_API_KEY", default="")
 
-SESSION_COOKIE_SAMESITE = 'None'
-SESSION_COOKIE_SECURE = True
-
-CSRF_COOKIE_SAMESITE = 'None'
-CSRF_COOKIE_SECURE = True
-CSRF_TRUSTED_ORIGINS = [
-    "https://www.stokita.app",
-]
-
-JWT_AUTH_SAMESITE = 'None'
-JWT_AUTH_SECURE = True

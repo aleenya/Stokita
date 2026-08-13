@@ -10,6 +10,7 @@ from django.conf import settings
 # Tambahkan import ini untuk tipe data dan skema
 from typing import Optional, List, Literal
 from pydantic import BaseModel, Field
+from google import genai
 
 logger = logging.getLogger(__name__)
 
@@ -141,12 +142,10 @@ def _parse_gemini_response(text, context):
     return validated
 
 def _gemini_recommendations(context):
-    from google import genai
-
     client = genai.Client(api_key=settings.GEMINI_API_KEY)
     prompt = _build_prompt(context)
     response = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-3.5-flash",
         contents=prompt,
         config={
             "response_mime_type": "application/json",
@@ -191,8 +190,6 @@ Konteks lain yang mungkin relevan:
 """
 
 def analyze_impact(action_message: str, baseline: dict, followup: dict, other_context: str = ""):
-    from google import genai
-
     if not settings.GEMINI_API_KEY:
         return None
 
@@ -200,7 +197,7 @@ def analyze_impact(action_message: str, baseline: dict, followup: dict, other_co
     try:
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-3.5-flash",
             contents=prompt,
             config={
                 "response_mime_type": "application/json",
