@@ -176,7 +176,7 @@ export default function LoginPage({ onLoginSuccess, onSwitchToRegister }) {
             Apa yang harus kamu lakuin hari ini?
           </h1>
           <p className="mt-5 text-white/70 text-base max-w-sm leading-relaxed">
-            Login buat liat risiko stok, kebocoran profit, dan apa yang perlu dibeli hari ini — sebelum harinya keburu lewat.
+            Login buat liat risiko stok, kebocoran profit, dan apa yang perlu dibeli hari ini, sebelum harinya keburu lewat.
           </p>
         </div>
 
