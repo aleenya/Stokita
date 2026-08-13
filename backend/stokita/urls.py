@@ -16,7 +16,9 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-from accounts.views import CsrfCookieView, LoginView, LogoutView, RefreshView, RegisterView
+from accounts.views import (
+    CsrfCookieView, GoogleLinkView, GoogleLoginView, LoginView, LogoutView, RefreshView, RegisterView,
+)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -30,4 +32,6 @@ urlpatterns = [
     path("api/v1/auth/logout/", LogoutView.as_view()),
     path("api/v1/auth/refresh/", RefreshView.as_view()),
     path("api/v1/auth/register/", RegisterView.as_view()),
+    path("api/v1/auth/google/login/", GoogleLoginView.as_view()),
+    path("api/v1/auth/google/link/", GoogleLinkView.as_view()),
 ]

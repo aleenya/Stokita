@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
+import api from '../api/client'
+import GoogleSignInButton from './GoogleSignInButton'
 
 /* =========================================================================
    SIDEBAR
@@ -106,6 +108,17 @@ export default function Sidebar({
   const items = NAV_ITEMS.filter((i) => pages.includes(i.key))
   const [identityOpen, setIdentityOpen] = useState(false)
   const identityRef = useRef(null)
+  const [googleLinkStatus, setGoogleLinkStatus] = useState('') // '' | 'linking' | 'linked' | error message
+
+  async function handleLinkGoogle(credential) {
+    setGoogleLinkStatus('linking')
+    try {
+      await api.post('/auth/google/link/', { credential })
+      setGoogleLinkStatus('linked')
+    } catch (err) {
+      setGoogleLinkStatus(err.response?.data?.error || 'Gagal menghubungkan Google.')
+    }
+  }
 
   useEffect(() => {
     if (!identityOpen) return
@@ -208,6 +221,20 @@ export default function Sidebar({
         <div className="relative" ref={identityRef}>
           {identityOpen && (
             <div className="absolute bottom-full left-3 right-3 mb-1 rounded-lg border border-[#E4E2DC] bg-white shadow-[0_14px_32px_-10px_rgba(20,29,52,0.28),0_2px_8px_rgba(20,29,52,0.08)] py-1">
+              <div className="px-3 py-2">
+                {googleLinkStatus === 'linked' ? (
+                  <p className="text-xs font-medium text-[#2E7D53]">✓ Google terhubung</p>
+                ) : (
+                  <GoogleSignInButton
+                    label="Hubungkan Google"
+                    disabled={googleLinkStatus === 'linking'}
+                    onCredential={handleLinkGoogle}
+                  />
+                )}
+                {googleLinkStatus && googleLinkStatus !== 'linking' && googleLinkStatus !== 'linked' && (
+                  <p className="text-xs text-[#B8433B] mt-1.5">{googleLinkStatus}</p>
+                )}
+              </div>
               <button
                 type="button"
                 onClick={() => {
