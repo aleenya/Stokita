@@ -250,16 +250,9 @@ class InsufficientStockError(Exception):
         )
 
 def _effective_unit_price(menu):
-    if menu.active_discount_pct and menu.active_discount_ingredient_id:
-        ing = menu.active_discount_ingredient
-        expired = menu.active_discount_expiry_date and menu.active_discount_expiry_date < date.today()
-        if ing.current_stock <= 0 or expired:
-            menu.active_discount_pct = None
-            menu.active_discount_ingredient = None
-            menu.active_discount_expiry_date = None
-            menu.save(update_fields=["active_discount_pct", "active_discount_ingredient", "active_discount_expiry_date"])
-        else:
-            return menu.sell_price * (1 - menu.active_discount_pct / 100)
+    pct = menu.get_effective_discount_pct()
+    if pct:
+        return menu.sell_price * (1 - pct / 100)
     return menu.sell_price
 
 @transaction.atomic

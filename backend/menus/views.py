@@ -73,3 +73,22 @@ class MenuViewSet(viewsets.ModelViewSet):
             for line in lines
         ])
         return Response(MenuSerializer(menu).data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["patch"], url_path="manual-discount")
+    def manual_discount(self, request, pk=None):
+        menu = get_object_or_404(Menu, pk=pk, business=request.user.business)
+        pct = request.data.get("pct")
+        until = request.data.get("until")
+
+        menu.manual_discount_pct = pct
+        menu.manual_discount_until = until
+        menu.active_discount_pct = pct          # manual selalu menang, langsung timpa
+        if not pct:
+            menu.active_discount_ingredient = None
+            menu.active_discount_expiry_date = None
+
+        menu.save(update_fields=[
+            "manual_discount_pct", "manual_discount_until",
+            "active_discount_pct", "active_discount_ingredient", "active_discount_expiry_date",
+        ])
+        return Response(MenuSerializer(menu).data)

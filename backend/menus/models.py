@@ -4,6 +4,7 @@ from django.core.validators import MinValueValidator
 from django.db import models
 from accounts.models import Business
 from inventory.models import Ingredient
+from datetime import date
 
 
 class Menu(models.Model):
@@ -21,7 +22,22 @@ class Menu(models.Model):
     active_discount_pct = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     active_discount_ingredient = models.ForeignKey(Ingredient, on_delete=models.SET_NULL, null=True, blank=True)
     active_discount_expiry_date = models.DateField(null=True, blank=True)  # snapshot expiry batch pemicu diskon
-
+    manual_discount_pct = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    manual_discount_until = models.DateField(null=True, blank=True)  # null = gak ada batas waktu, manual off sendiri
+    def get_effective_discount_pct(self):
+        # manual (dari owner) menang duluan kalau ada & masih aktif
+        if self.manual_discount_pct:
+            expired = self.manual_discount_until and self.manual_discount_until < date.today()
+            if not expired:
+                return self.manual_discount_pct
+        # fallback ke diskon dari AI brief (ingredient-triggered)
+        if self.active_discount_pct and self.active_discount_ingredient_id:
+            ing = self.active_discount_ingredient
+            expired = self.active_discount_expiry_date and self.active_discount_expiry_date < date.today()
+            if ing.current_stock > 0 and not expired:
+                return self.active_discount_pct
+        return None
+    
     class Meta:
         db_table = "menus"
 
@@ -42,6 +58,17 @@ class Menu(models.Model):
 
     def __str__(self):
         return self.name
+
+    def get_effective_discount_pct(self):
+        """Diskon dianggap aktif HANYA kalau ingredient pemicu masih ada
+        stok & belum lewat expiry — dicek live, gak ngandelin field
+        tersimpan yang bisa basi."""
+        if self.active_discount_pct and self.active_discount_ingredient_id:
+            ing = self.active_discount_ingredient
+            expired = self.active_discount_expiry_date and self.active_discount_expiry_date < date.today()
+            if ing.current_stock > 0 and not expired:
+                return self.active_discount_pct
+        return None
 
 
 class MenuRecipe(models.Model):

@@ -437,7 +437,7 @@ export default function Dashboard({ ownerName = 'there', onNavigate }) {
   const [status, setStatus] = useState('loading')
   const [brief, setBrief] = useState(null)
   const [regenerating, setRegenerating] = useState(false)
-  const [salesToday, setSalesToday] = useState({ revenue: 0, volume: 0, prevRevenue: null })
+  const [salesToday, setSalesToday] = useState({ revenue: 0, volume: 0, orders: 0, prevRevenue: null })
   const [lowStock, setLowStock] = useState([])
   const [expiringSoon, setExpiringSoon] = useState([])
   const [canGenerateNow, setCanGenerateNow] = useState(true)
@@ -497,19 +497,22 @@ export default function Dashboard({ ownerName = 'there', onNavigate }) {
 
       if (salesList.length || salesRes) {
         let totalRevenue = 0
-        const totalVolume = salesList.length // Jumlah struk/order
+        let totalItemsSold = 0
+        const totalOrders = salesList.length // jumlah transaksi/log yang disubmit
 
         salesList.forEach((sale) => {
           if (Array.isArray(sale.items)) {
             sale.items.forEach((item) => {
               totalRevenue += num(item.unit_price) * num(item.quantity)
+              totalItemsSold += num(item.quantity) // jumlah menu yang beneran kejual
             })
           }
         })
 
         setSalesToday({
           revenue: totalRevenue,
-          volume: totalVolume,
+          volume: totalItemsSold,
+          orders: totalOrders,
           prevRevenue: null, // Dikosongkan dulu karena butuh narik data H-1
         })
       }
@@ -662,8 +665,9 @@ export default function Dashboard({ ownerName = 'there', onNavigate }) {
                 </div>
               </div>
               <div className="flex-1 px-6 py-4">
-                <p className="text-xs text-[#8B96A6] mb-1">Orders</p>
+                <p className="text-xs text-[#8B96A6] mb-1">Items Sold Today</p>
                 <p className="text-[22px] font-bold text-[#18233D]">{salesToday.volume}</p>
+                <p className="text-[11px] text-[#8B96A6] mt-0.5">{salesToday.orders} transaksi tercatat</p>
               </div>
               <div className="flex-1 px-6 py-4">
                 <p className="text-xs text-[#8B96A6] mb-1">Priorities</p>
