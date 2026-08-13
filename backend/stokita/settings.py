@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     "menus",
     "sales",
     "briefs",
+    "chat",
 ]
 
 MIDDLEWARE = [

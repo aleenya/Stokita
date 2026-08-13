@@ -10,6 +10,7 @@ import ProfitPage from './pages/ProfitPage'
 import PeoplePage from './pages/PeoplePage'
 import Dashboard from './pages/Dashboard'
 import Sidebar, { MobileTopbar, pageLabel } from './components/Sidebar'
+import ChatWidget from './components/ChatWidget'
 
 function AppLayout({ authStatus, authView, setAuthView, me, handleAuthSuccess, handleLogout }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -69,7 +70,6 @@ function AppLayout({ authStatus, authView, setAuthView, me, handleAuthSuccess, h
         userName={me?.full_name || me?.username || 'User'}
         userRole={me?.role || 'staff'}
         onLogout={handleLogout}
-        onAskStokita={() => {}}
         mobileOpen={sidebarOpen}
         onMobileClose={() => setSidebarOpen(false)}
       />
@@ -88,6 +88,8 @@ function AppLayout({ authStatus, authView, setAuthView, me, handleAuthSuccess, h
           </Routes>
         </div>
       </main>
+
+      <ChatWidget />
     </div>
   )
 }
