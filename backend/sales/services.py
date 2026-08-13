@@ -252,6 +252,13 @@ class InsufficientStockError(Exception):
 def _effective_unit_price(menu):
     pct = menu.get_effective_discount_pct()
     if pct:
+        # Manual discount is bounded 0–100 at the API (menus/views.py), and
+        # the AI-triggered discount_pct is only a hint in the Gemini prompt,
+        # not an enforced constraint — clamp here too so a bad pct from
+        # either source can never produce a negative or inflated sell
+        # price on the SaleItem snapshot (unit_price has no validator of
+        # its own, since it's written via a raw .create(), not a serializer).
+        pct = min(max(pct, Decimal("0")), Decimal("100"))
         return menu.sell_price * (1 - pct / 100)
     return menu.sell_price
 
