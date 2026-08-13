@@ -65,6 +65,9 @@ const IconBook = (p) => (
 const IconAlertTriangle = (p) => (
   <svg {...ic} {...p}><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
 )
+const IconPercent = (p) => (
+  <svg {...ic} {...p}><line x1="19" y1="5" x2="5" y2="19" /><circle cx="6.5" cy="6.5" r="2.5" /><circle cx="17.5" cy="17.5" r="2.5" /></svg>
+)
 
 /* =========================================================================
    HELPERS
@@ -430,7 +433,115 @@ function RecipeModal({ menu, ingredients, onClose, onSaved }) {
    ROW ACTION MENU — Edit / Deactivate / Delete (Recipe stays as a visible
    primary link since it's the most frequent action on a menu row).
    ========================================================================= */
-function RowActionMenu({ isActive, onEdit, onToggleActive, onDelete, deleting }) {
+/* =========================================================================
+   MANUAL DISCOUNT MODAL — promo bebas dari owner, terpisah dari diskon
+   otomatis AI (active_discount_pct yg dipicu ingredient mau expired).
+   Manual selalu menang kalau dua-duanya aktif (lihat get_effective_discount_pct
+   di backend).
+   ========================================================================= */
+function DiscountModal({ menu, onClose, onSaved }) {
+  const hasManual = Boolean(menu.manual_discount_pct)
+  const [pct, setPct] = useState(menu.manual_discount_pct ?? '')
+  const [until, setUntil] = useState(menu.manual_discount_until ?? '')
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  async function handleSubmit(e) {
+    e.preventDefault()
+    setError('')
+    if (pct === '' || Number(pct) < 0 || Number(pct) > 100) {
+      setError('Persen diskon harus antara 0–100.')
+      return
+    }
+    if (Number(pct) === 0) {
+      return handleClear()
+    }
+    try {
+      const res = await api.patch(`/menus/${menu.id}/manual-discount/`, {
+        pct,
+        until: until || null,
+      })
+      onSaved(res.data)
+    } catch (err) {
+      setError(extractError(err) || 'Gagal menyimpan diskon.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleClear() {
+    setSaving(true)
+    setError('')
+    try {
+      const res = await api.patch(`/menus/${menu.id}/manual-discount/`, { pct: null, until: null })
+      onSaved(res.data)
+    } catch (err) {
+      setError(extractError(err) || 'Gagal menghapus diskon.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal title={`Diskon manual — ${menu.name}`} onClose={onClose}>
+      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+        <p className="text-sm text-[#5B6B82]">
+          Harga jual normal: <span className="font-semibold text-[#18233D]">Rp {formatRupiah(menu.sell_price)}</span>
+        </p>
+
+        <div>
+          <label className={LABEL}>Diskon (%)</label>
+          <input
+            type="number"
+            step="1"
+            min="1"
+            max="100"
+            value={pct}
+            onChange={(e) => setPct(e.target.value)}
+            className={INPUT}
+            placeholder="20"
+          />
+          {pct !== '' && Number(pct) > 0 && Number(pct) <= 100 && (
+            <p className="text-xs text-[#5B6B82] mt-1.5">
+              Harga setelah diskon: <span className="font-semibold text-[#2E7D53]">
+                Rp {formatRupiah(menu.sell_price * (1 - Number(pct) / 100))}
+              </span>
+            </p>
+          )}
+        </div>
+
+        <div>
+          <label className={LABEL}>Berlaku sampai (opsional)</label>
+          <input
+            type="date"
+            value={until || ''}
+            onChange={(e) => setUntil(e.target.value)}
+            className={INPUT}
+          />
+          <p className="text-xs text-[#8B96A6] mt-1.5">Kosongin kalau mau diskon aktif terus sampai kamu matiin manual.</p>
+        </div>
+
+        {error && <p className={ERROR_BANNER}>{error}</p>}
+
+        <div className="flex gap-3 pt-1">
+          <button type="button" onClick={onClose} className={`flex-1 ${BTN_SECONDARY}`}>
+            Batal
+          </button>
+          {hasManual && (
+            <button type="button" onClick={handleClear} disabled={saving} className={`flex-1 ${LINK_CRITICAL} border border-[#B8433B]/30 rounded-full px-4 py-2.5 text-sm font-semibold hover:bg-[#FBEBEA] transition-colors disabled:opacity-50`}>
+              Hapus diskon
+            </button>
+          )}
+          <button type="submit" disabled={saving} className={`flex-1 ${BTN_PRIMARY}`}>
+            {saving ? 'Menyimpan…' : 'Simpan'}
+          </button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+function RowActionMenu({ isActive, hasDiscount, onEdit, onDiscount, onToggleActive, onDelete, deleting }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
 
@@ -465,6 +576,13 @@ function RowActionMenu({ isActive, onEdit, onToggleActive, onDelete, deleting })
           </button>
           <button
             type="button"
+            onClick={() => { setOpen(false); onDiscount() }}
+            className="w-full flex items-center gap-2 text-left px-3 py-2 text-sm text-[#18233D] hover:bg-[#F7F5F0] transition-colors"
+          >
+            <IconPercent className="w-3.5 h-3.5 text-[#8B96A6]" /> {hasDiscount ? 'Edit discount' : 'Set discount'}
+          </button>
+          <button
+            type="button"
             onClick={() => { setOpen(false); onToggleActive() }}
             className="w-full flex items-center gap-2 text-left px-3 py-2 text-sm text-[#18233D] hover:bg-[#F7F5F0] transition-colors"
           >
@@ -495,6 +613,7 @@ export default function MenusPage({ onLogout }) {
   const [formTarget, setFormTarget] = useState(null)
   const [showAddForm, setShowAddForm] = useState(false)
   const [recipeTarget, setRecipeTarget] = useState(null)
+  const [discountTarget, setDiscountTarget] = useState(null)
   const [deletingId, setDeletingId] = useState(null)
   const [reloadToken, setReloadToken] = useState(0)
 
@@ -540,6 +659,7 @@ export default function MenusPage({ onLogout }) {
     setFormTarget(null)
     setShowAddForm(false)
     setRecipeTarget(null)
+    setDiscountTarget(null)
   }
 
   async function handleToggleActive(menu) {
@@ -677,30 +797,32 @@ export default function MenusPage({ onLogout }) {
                 {visibleMenus.map((menu) => {
                   const margin = marginPct(menu)
                   const belowTarget = margin !== null && margin < Number(menu.target_margin)
+                  const effectivePct = menu.active_discount_pct // serializer udah balikin hasil get_effective_discount_pct()
+                  const isManual = Boolean(menu.manual_discount_pct) && effectivePct === menu.manual_discount_pct
                   return (
                     <tr key={menu.id} className="border-t border-[#E4E2DC] hover:bg-[#F7F5F0]/60 transition-colors">
                       <td className="px-5 py-3 text-[#18233D] font-medium">
                         <span className="inline-flex items-center gap-1.5">
                           {menu.name}
-                          {menu.active_discount_pct && (
+                          {effectivePct && (
                             <span className="text-[10px] font-bold text-[#2E7D53] bg-[#EAF5EE] rounded-full px-1.5 py-0.5">
-                              Diskon
+                              {isManual ? 'Diskon manual' : 'Diskon AI'}
                             </span>
                           )}
                         </span>
                       </td>
                       <td className="px-5 py-3 text-right tabular-nums text-[#18233D]">
-                        {menu.active_discount_pct ? (
+                        {effectivePct ? (
                           <div className="flex flex-col items-end">
                             <span className="text-xs text-[#8B96A6] line-through">
                               Rp {formatRupiah(menu.sell_price)}
                             </span>
                             <span className="flex items-center gap-1.5">
                               <span className="font-semibold text-[#2E7D53]">
-                                Rp {formatRupiah(menu.sell_price * (1 - menu.active_discount_pct / 100))}
+                                Rp {formatRupiah(menu.sell_price * (1 - effectivePct / 100))}
                               </span>
                               <span className="text-[10px] font-bold text-[#2E7D53] bg-[#EAF5EE] rounded-full px-1.5 py-0.5">
-                                -{menu.active_discount_pct}%
+                                -{effectivePct}%
                               </span>
                             </span>
                           </div>
@@ -733,7 +855,9 @@ export default function MenusPage({ onLogout }) {
                       <td className="px-5 py-3 text-right">
                         <RowActionMenu
                           isActive={menu.is_active}
+                          hasDiscount={Boolean(menu.manual_discount_pct)}
                           onEdit={() => setFormTarget(menu)}
+                          onDiscount={() => setDiscountTarget(menu)}
                           onToggleActive={() => handleToggleActive(menu)}
                           onDelete={() => handleDelete(menu)}
                           deleting={deletingId === menu.id}
@@ -757,6 +881,13 @@ export default function MenusPage({ onLogout }) {
           menu={recipeTarget}
           ingredients={ingredients}
           onClose={() => setRecipeTarget(null)}
+          onSaved={handleSaved}
+        />
+      )}
+      {discountTarget && (
+        <DiscountModal
+          menu={discountTarget}
+          onClose={() => setDiscountTarget(null)}
           onSaved={handleSaved}
         />
       )}
