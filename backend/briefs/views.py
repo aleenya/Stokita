@@ -34,7 +34,7 @@ class BriefViewSet(viewsets.ViewSet):
 
         if not brief:
             return Response({
-                "detail": "No brief yet. Generate one.",
+                "detail": "Belum ada brief. Generate dulu satu.",
                 "can_generate_now": can_generate_now,
                 "next_generate_at": None,
             }, status=404)

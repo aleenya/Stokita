@@ -27,6 +27,10 @@ class User(AbstractUser):
         null=True, blank=True,
     )
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default=STAFF)
+    # Google's stable per-account identifier (the "sub" claim) — not email,
+    # which can be unverified or change. Null until the user links Google
+    # Sign-In from an already-logged-in session (see accounts/google_auth.py).
+    google_sub = models.CharField(max_length=255, unique=True, null=True, blank=True)
 
     def is_owner(self):
         return self.role == self.OWNER

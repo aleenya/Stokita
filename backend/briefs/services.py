@@ -116,7 +116,7 @@ def generate_daily_brief(business):
             discount_ingredient_expiry_date=expiry_by_ingredient.get(a.get("related_ingredient_id")),
         )
 
-    brief.summary = f"{len(actions_data)} actions to protect margin today"
+    brief.summary = f"{len(actions_data)} aksi untuk jaga margin hari ini"
     brief.save(update_fields=["summary"])
     return brief
 

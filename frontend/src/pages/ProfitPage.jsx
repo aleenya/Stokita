@@ -531,15 +531,15 @@ function TrendChart({ series, metric }) {
    PAGE
    ========================================================================= */
 const PERIOD_OPTIONS = [
-  { value: 'today', label: 'Today' },
-  { value: '7d', label: 'Last 7 days' },
-  { value: '30d', label: 'Last 30 days' },
+  { value: 'today', label: 'Hari ini' },
+  { value: '7d', label: '7 hari terakhir' },
+  { value: '30d', label: '30 hari terakhir' },
   { value: 'custom', label: 'Custom' },
 ]
 const METRIC_OPTIONS = [
-  { value: 'sales', label: 'Revenue' },
+  { value: 'sales', label: 'Pendapatan' },
   { value: 'profit', label: 'Profit' },
-  { value: 'units', label: 'Units' },
+  { value: 'units', label: 'Unit' },
 ]
 
 export default function ProfitPage() {
@@ -590,7 +590,7 @@ export default function ProfitPage() {
       setBreakdown(breakdownRes.data.menus)
       setError('')
     } catch (err) {
-      setError(extractError(err) || 'Gagal ambil data performance.')
+      setError(extractError(err) || 'Gagal ambil data performa.')
     } finally {
       setLoading(false)
     }
@@ -622,7 +622,7 @@ export default function ProfitPage() {
     fetchCompare()
   }, [tab, customIncomplete, fetchCompare])
 
-  const metricLabel = METRIC_OPTIONS.find((m) => m.value === metric)?.label || 'Revenue'
+  const metricLabel = METRIC_OPTIONS.find((m) => m.value === metric)?.label || 'Pendapatan'
   const revenueTrend = overview ? pctChange(overview.current.revenue, overview.previous.revenue) : null
   const profitTrend = overview ? pctChange(overview.current.profit, overview.previous.profit) : null
   const volumeTrend = overview ? pctChange(overview.current.volume, overview.previous.volume) : null
@@ -631,8 +631,8 @@ export default function ProfitPage() {
     <div className="max-w-4xl mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white rounded-2xl px-5 sm:px-6 py-5 mb-6">
         <div>
-          <h1 className="text-[22px] font-extrabold tracking-tight text-[#18233D]">Performance</h1>
-          <p className="text-sm text-[#5B6B82] mt-1">How your business is doing.</p>
+          <h1 className="text-[22px] font-extrabold tracking-tight text-[#18233D]">Performa</h1>
+          <p className="text-sm text-[#5B6B82] mt-1">Gimana performa bisnis kamu.</p>
         </div>
       </div>
 
@@ -656,7 +656,7 @@ export default function ProfitPage() {
       {tab !== 'feedback' && (
       <div className="flex flex-wrap items-end gap-4 mb-6">
         <div>
-          <label className={LABEL}>Period</label>
+          <label className={LABEL}>Periode</label>
           <select value={period} onChange={(e) => setPeriod(e.target.value)} className={`${INPUT} w-40`}>
             {PERIOD_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
           </select>
@@ -664,17 +664,17 @@ export default function ProfitPage() {
         {period === 'custom' ? (
           <>
             <div>
-              <label className={LABEL}>From</label>
+              <label className={LABEL}>Dari</label>
               <input type="date" value={customStart} max={customEnd || todayStr()} onChange={(e) => setCustomStart(e.target.value)} className={`${INPUT} w-40`} />
             </div>
             <div>
-              <label className={LABEL}>To</label>
+              <label className={LABEL}>Sampai</label>
               <input type="date" value={customEnd} min={customStart} max={todayStr()} onChange={(e) => setCustomEnd(e.target.value)} className={`${INPUT} w-40`} />
             </div>
           </>
         ) : (
           <div>
-            <p className={LABEL}>Range</p>
+            <p className={LABEL}>Rentang</p>
             <p className="text-sm font-semibold text-[#18233D] px-1 py-2">{rangeLabelText(overview?.range)}</p>
           </div>
         )}
@@ -683,12 +683,12 @@ export default function ProfitPage() {
             <div>
               <label className={LABEL}>Menu</label>
               <select value={menuFilter} onChange={(e) => setMenuFilter(e.target.value)} className={`${INPUT} w-44`}>
-                <option value="all">All Menus</option>
+                <option value="all">Semua Menu</option>
                 {menus.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
               </select>
             </div>
             <div>
-              <label className={LABEL}>Metric</label>
+              <label className={LABEL}>Metrik</label>
               <select value={metric} onChange={(e) => setMetric(e.target.value)} className={`${INPUT} w-36`}>
                 {METRIC_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
@@ -703,26 +703,26 @@ export default function ProfitPage() {
           {error && <p className={`${ERROR_BANNER} mb-6`}>{error}</p>}
 
           {loading || !overview ? (
-            <p className="text-sm text-[#5B6B82] px-1 py-10 text-center">Loading...</p>
+            <p className="text-sm text-[#5B6B82] px-1 py-10 text-center">Memuat...</p>
           ) : (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-                <StatCard label="Total Sales" value={formatRupiah(overview.current.revenue)} />
-                <StatCard label="Estimated Gross Profit" value={formatRupiah(overview.current.profit)} />
-                <StatCard label="Units Sold" value={formatNumber(overview.current.volume)} />
+                <StatCard label="Total Penjualan" value={formatRupiah(overview.current.revenue)} />
+                <StatCard label="Estimasi Profit Kotor" value={formatRupiah(overview.current.profit)} />
+                <StatCard label="Unit Terjual" value={formatNumber(overview.current.volume)} />
               </div>
 
               <div className="flex items-center gap-3 mb-8 px-1">
-                <span className="text-xs font-semibold text-[#8B96A6] uppercase tracking-wide">vs. previous period</span>
-                <TrendBadge pct={revenueTrend} title={`Revenue: ${formatRupiah(overview.previous.revenue)} → ${formatRupiah(overview.current.revenue)}`} />
+                <span className="text-xs font-semibold text-[#8B96A6] uppercase tracking-wide">vs. periode sebelumnya</span>
+                <TrendBadge pct={revenueTrend} title={`Pendapatan: ${formatRupiah(overview.previous.revenue)} → ${formatRupiah(overview.current.revenue)}`} />
                 <TrendBadge pct={profitTrend} title={`Profit: ${formatRupiah(overview.previous.profit)} → ${formatRupiah(overview.current.profit)}`} />
-                <TrendBadge pct={volumeTrend} title={`Units: ${formatNumber(overview.previous.volume)} → ${formatNumber(overview.current.volume)}`} />
+                <TrendBadge pct={volumeTrend} title={`Unit: ${formatNumber(overview.previous.volume)} → ${formatNumber(overview.current.volume)}`} />
               </div>
 
               <section className="mb-10">
-                <h2 className="text-[17px] font-bold text-[#18233D] mb-3">{metricLabel} Trend</h2>
+                <h2 className="text-[17px] font-bold text-[#18233D] mb-3">Tren {metricLabel}</h2>
                 {overview.daily_series.length < 2 ? (
-                  <EmptyState title="Pick a period with more than one day to see a trend." />
+                  <EmptyState title="Pilih periode lebih dari 1 hari buat liat trennya." />
                 ) : (
                   <div className={`bg-white rounded-xl ${SHADOW_CARD} p-5`}>
                     <TrendChart series={overview.daily_series} metric={metric} />
@@ -731,12 +731,12 @@ export default function ProfitPage() {
               </section>
 
               <section>
-                <h2 className="text-[17px] font-bold text-[#18233D] mb-3">Menu Performance</h2>
+                <h2 className="text-[17px] font-bold text-[#18233D] mb-3">Performa Menu</h2>
                 {breakdown.every((r) => r.qty === 0) ? (
-                  <EmptyState title="No sales in this period." body="Pick a wider date range to compare menus." />
+                  <EmptyState title="Gak ada penjualan di periode ini." body="Pilih rentang tanggal yang lebih luas buat bandingin menu." />
                 ) : (
                   <p className="text-xs text-[#8B96A6] mb-3">
-                    Trend compares <span className="font-medium text-[#5B6B82]">{rangeLabelText(overview.range)}</span> to the previous period of the same length, <span className="font-medium text-[#5B6B82]">{rangeLabelText(overview.previous_range)}</span>.
+                    Tren membandingkan <span className="font-medium text-[#5B6B82]">{rangeLabelText(overview.range)}</span> dengan periode sebelumnya yang durasinya sama, <span className="font-medium text-[#5B6B82]">{rangeLabelText(overview.previous_range)}</span>.
                   </p>
                 )}
                 <div className={`bg-white rounded-xl ${SHADOW_CARD} overflow-hidden`}>
@@ -745,11 +745,11 @@ export default function ProfitPage() {
                       <thead>
                         <tr className="bg-[#EAF1FB] text-left text-[11px] font-bold text-[#1E4278] uppercase tracking-wide">
                           <th className="px-4 py-3">Menu</th>
-                          <th className="px-4 py-3 text-right">Qty sold</th>
-                          <th className="px-4 py-3 text-right">Revenue</th>
-                          <th className="px-4 py-3 text-right">Cost</th>
+                          <th className="px-4 py-3 text-right">Qty terjual</th>
+                          <th className="px-4 py-3 text-right">Pendapatan</th>
+                          <th className="px-4 py-3 text-right">Biaya</th>
                           <th className="px-4 py-3 text-right">Margin</th>
-                          <th className="px-4 py-3 text-right">Trend</th>
+                          <th className="px-4 py-3 text-right">Tren</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -782,7 +782,7 @@ export default function ProfitPage() {
           {compareError && <p className={`${ERROR_BANNER} mb-6`}>{compareError}</p>}
 
           {menus.length < 2 ? (
-            <EmptyState title="Need at least two menus." body="Add another menu to compare performance side by side." />
+            <EmptyState title="Butuh minimal dua menu." body="Tambah menu lain buat bandingin performa berdampingan." />
           ) : (
             <>
               <div className="flex flex-wrap items-end gap-4 mb-5">
@@ -801,9 +801,9 @@ export default function ProfitPage() {
               </div>
 
               {compareA === compareB ? (
-                <EmptyState title="Pick two different menus." body="Choose two distinct menus above to compare their performance." />
+                <EmptyState title="Pilih dua menu yang beda." body="Pilih dua menu yang berbeda di atas buat bandingin performanya." />
               ) : compareLoading || compareData === null ? (
-                <p className="text-sm text-[#5B6B82] px-1 py-10 text-center">Loading...</p>
+                <p className="text-sm text-[#5B6B82] px-1 py-10 text-center">Memuat...</p>
               ) : !compareData.a || !compareData.b ? (
                 <EmptyState title="Salah satu menu gak ketemu." body="Menu ini mungkin baru aja dihapus — pilih ulang menunya di atas." />
               ) : (
@@ -835,32 +835,32 @@ function CompareTable({ data }) {
   return (
     <>
       <p className="text-xs text-[#8B96A6] mb-3">
-        Showing <span className="font-medium text-[#5B6B82]">{rangeLabelText(range)}</span> · trend vs. the previous period, <span className="font-medium text-[#5B6B82]">{rangeLabelText(previous_range)}</span>.
+        Menampilkan <span className="font-medium text-[#5B6B82]">{rangeLabelText(range)}</span> · tren vs. periode sebelumnya, <span className="font-medium text-[#5B6B82]">{rangeLabelText(previous_range)}</span>.
       </p>
       <div className={`bg-white rounded-xl ${SHADOW_CARD} overflow-hidden`}>
         <table className="w-full min-w-[480px] text-sm">
           <thead>
             <tr className="bg-[#EAF1FB] text-left text-[11px] font-bold text-[#1E4278] uppercase tracking-wide">
-              <th className="px-4 py-3">Metric</th>
+              <th className="px-4 py-3">Metrik</th>
               <th className="px-4 py-3 text-right">{a.name}</th>
               <th className="px-4 py-3 text-right">{b.name}</th>
             </tr>
           </thead>
           <tbody>
-            {compareMetricRow('Qty sold', formatNumber, a.current.volume, b.current.volume, true)}
-            {compareMetricRow('Revenue', formatRupiah, a.current.revenue, b.current.revenue, true)}
-            {compareMetricRow('Cost', formatRupiah, a.current.cost, b.current.cost, false)}
+            {compareMetricRow('Qty terjual', formatNumber, a.current.volume, b.current.volume, true)}
+            {compareMetricRow('Pendapatan', formatRupiah, a.current.revenue, b.current.revenue, true)}
+            {compareMetricRow('Biaya', formatRupiah, a.current.cost, b.current.cost, false)}
             {compareMetricRow('Profit', formatRupiah, a.current.profit, b.current.profit, true)}
             {compareMetricRow('Margin', (v) => `${v.toFixed(1)}%`, a.margin_pct, b.margin_pct, true)}
           </tbody>
           <tfoot>
             <tr className="border-t border-[#E4E2DC] bg-[#F7F5F0]/60">
-              <td className="px-4 py-2.5 text-xs font-semibold text-[#8B96A6]">vs. previous period</td>
+              <td className="px-4 py-2.5 text-xs font-semibold text-[#8B96A6]">vs. periode sebelumnya</td>
               <td className="px-4 py-2.5 text-right">
-                <TrendBadge pct={pctChange(a.current.revenue, a.previous.revenue)} title={`Revenue: ${formatRupiah(a.previous.revenue)} → ${formatRupiah(a.current.revenue)}`} />
+                <TrendBadge pct={pctChange(a.current.revenue, a.previous.revenue)} title={`Pendapatan: ${formatRupiah(a.previous.revenue)} → ${formatRupiah(a.current.revenue)}`} />
               </td>
               <td className="px-4 py-2.5 text-right">
-                <TrendBadge pct={pctChange(b.current.revenue, b.previous.revenue)} title={`Revenue: ${formatRupiah(b.previous.revenue)} → ${formatRupiah(b.current.revenue)}`} />
+                <TrendBadge pct={pctChange(b.current.revenue, b.previous.revenue)} title={`Pendapatan: ${formatRupiah(b.previous.revenue)} → ${formatRupiah(b.current.revenue)}`} />
               </td>
             </tr>
           </tfoot>

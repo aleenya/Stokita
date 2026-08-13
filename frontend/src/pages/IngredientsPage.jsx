@@ -3,11 +3,7 @@ import api from '../api/client'
 import { extractError } from '../utils/error'
 
 /* =========================================================================
-   DESIGN TOKENS — sama persis dengan Dashboard.jsx / Sidebar.jsx / MenusPage.jsx.
-   Satu pengecualian: AI_* di bawah nambahin accent indigo/violet, dipakai
-   KHUSUS buat elemen yang eksplisit "AI-powered" (estimasi expiry, parse
-   struk) — konvensi umum enterprise SaaS (Notion AI, Copilot) buat nandain
-   fitur AI beda dari aksi biasa, tanpa ganti palet utama app.
+   DESIGN TOKENS
    ========================================================================= */
 const SHADOW_CARD =
   'shadow-[0_2px_6px_rgba(24,35,61,0.06),0_10px_24px_-8px_rgba(24,35,61,0.22)]'
@@ -36,8 +32,7 @@ const AI_BUTTON =
 const UNIT_OPTIONS = ['kg', 'g', 'liter', 'ml', 'pcs', 'pack', 'box', 'dozen']
 
 /* =========================================================================
-   ICONS — inline SVG, stroke-based (sama konvensi kayak Sidebar.jsx), gak
-   nambah dependency icon library baru.
+   ICONS — inline SVG, stroke-based
    ========================================================================= */
 const ic = {
   className: 'w-4 h-4', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
@@ -86,9 +81,9 @@ const IconTrash = (p) => (
 function stockStatus(ing) {
   const stock = Number(ing.current_stock) || 0
   const threshold = ing.low_stock_threshold != null ? Number(ing.low_stock_threshold) : null
-  if (stock <= 0) return { key: 'out_of_stock', label: 'Out of Stock', tone: 'critical' }
-  if (threshold != null && stock <= threshold) return { key: 'low_stock', label: 'Low Stock', tone: 'warning' }
-  return { key: 'in_stock', label: 'In Stock', tone: 'success' }
+  if (stock <= 0) return { key: 'out_of_stock', label: 'Stok Habis', tone: 'critical' }
+  if (threshold != null && stock <= threshold) return { key: 'low_stock', label: 'Stok Menipis', tone: 'warning' }
+  return { key: 'in_stock', label: 'Stok Aman', tone: 'success' }
 }
 
 const TONE_BADGE = {
@@ -108,15 +103,15 @@ function StatusBadge({ tone, label }) {
 
 const MOVEMENT_META = {
   restock: { label: 'Restock', tone: 'success' },
-  adjustment: { label: 'Waste', tone: 'critical' },
-  sale_deduction: { label: 'Sale', tone: 'neutral' },
+  adjustment: { label: 'Rusak', tone: 'critical' },
+  sale_deduction: { label: 'Penjualan', tone: 'neutral' },
 }
 
 function expiryUrgency(daysLeft) {
-  if (daysLeft <= 0) return { label: 'Expires today', tone: 'critical' }
-  if (daysLeft === 1) return { label: 'Expires tomorrow', tone: 'critical' }
-  if (daysLeft <= 3) return { label: `Expires in ${daysLeft}d`, tone: 'warning' }
-  return { label: `Expires in ${daysLeft}d`, tone: 'neutral' }
+  if (daysLeft <= 0) return { label: 'Kadaluwarsa hari ini', tone: 'critical' }
+  if (daysLeft === 1) return { label: 'Kadaluwarsa besok', tone: 'critical' }
+  if (daysLeft <= 3) return { label: `Kadaluwarsa ${daysLeft} hari lagi`, tone: 'warning' }
+  return { label: `Kadaluwarsa ${daysLeft} hari lagi`, tone: 'neutral' }
 }
 
 function fmtDateTime(iso) {
@@ -155,11 +150,7 @@ function Modal({ title, subtitle, onClose, children, wide }) {
   )
 }
 
-/* =========================================================================
-   HERO — light "stat strip" header (title + actions above a divided card
-   of live metrics). Deliberately NOT a dark gradient banner — kept flat,
-   data-forward, closer to how Linear/Stripe list-page headers read.
-   ========================================================================= */
+
 function StatCell({ icon, label, value, tone = 'neutral', onClick, active }) {
   const valueColor =
     tone === 'warning' ? 'text-[#A2670C]' : tone === 'critical' ? 'text-[#B8433B]' : 'text-[#18233D]'
@@ -189,32 +180,32 @@ function HeroBanner({ metrics, onAddIngredient, onOpenReceipt, lowStockActive, o
       <div className="flex flex-wrap items-end justify-between gap-4 mb-4">
         <div className="min-w-0">
           <h1 className="text-[22px] font-extrabold tracking-tight text-[#18233D]">
-            Ingredient &amp; Inventory Management
+            Manajemen Bahan &amp; Inventory
           </h1>
-          <p className="text-sm text-[#5B6B82] mt-1">Track stock levels, cost per unit, and restock as it happens.</p>
+          <p className="text-sm text-[#5B6B82] mt-1">Pantau level stok, biaya per unit, dan restock secara real-time.</p>
         </div>
         <div className="flex flex-wrap gap-2.5">
           <button onClick={onOpenReceipt} className={`${BTN_SECONDARY} bg-white ${SHADOW_CARD} inline-flex items-center gap-1.5`}>
-            <IconUploadCloud className="w-4 h-4" /> Restock from Receipt
+            <IconUploadCloud className="w-4 h-4" /> Restock dari Struk
           </button>
           <button onClick={onAddIngredient} className={BTN_PRIMARY}>
-            <span className="inline-flex items-center gap-1.5"><IconPlus className="w-4 h-4" /> Add Ingredient</span>
+            <span className="inline-flex items-center gap-1.5"><IconPlus className="w-4 h-4" /> Tambah Bahan</span>
           </button>
         </div>
       </div>
 
       <div className={`bg-white rounded-2xl ${SHADOW_CARD} overflow-hidden`}>
         <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 divide-[#E4E2DC] sm:divide-x">
-          <StatCell icon={<IconPackage className="w-4 h-4" />} label="Total Items" value={metrics.total} />
+          <StatCell icon={<IconPackage className="w-4 h-4" />} label="Total Item" value={metrics.total} />
           <StatCell
             icon={<IconAlertTriangle className="w-4 h-4" />}
-            label="Low Stock Alert"
+            label="Peringatan Stok Menipis"
             value={metrics.lowStock}
             tone={metrics.lowStock > 0 ? 'warning' : 'neutral'}
             onClick={onToggleLowStock}
             active={lowStockActive}
           />
-          <StatCell icon={<IconFile className="w-4 h-4" />} label="Total Valuation" value={formatRupiah(metrics.valuation)} />
+          <StatCell icon={<IconFile className="w-4 h-4" />} label="Total Valuasi" value={formatRupiah(metrics.valuation)} />
         </div>
       </div>
     </div>
@@ -277,22 +268,22 @@ function AddIngredientModal({ onClose, onSaved }) {
   }
 
   return (
-    <Modal title="Add Ingredient" subtitle="Daftarin bahan baku baru ke inventory." onClose={onClose}>
+    <Modal title="Tambah Bahan" subtitle="Daftarin bahan baku baru ke inventory." onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         <div>
-          <label className={LABEL}>Name</label>
+          <label className={LABEL}>Nama</label>
           <input
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             className={INPUT}
-            placeholder="Chicken breast"
+            placeholder="Dada ayam"
             required
           />
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className={LABEL}>Unit</label>
+            <label className={LABEL}>Satuan</label>
             <select
               value={form.unit}
               onChange={(e) => setForm({ ...form, unit: e.target.value })}
@@ -304,7 +295,7 @@ function AddIngredientModal({ onClose, onSaved }) {
             </select>
           </div>
           <div>
-            <label className={LABEL}>Initial stock</label>
+            <label className={LABEL}>Stok awal</label>
             <input
               type="number" step="0.001"
               value={form.current_stock}
@@ -317,13 +308,13 @@ function AddIngredientModal({ onClose, onSaved }) {
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className={LABEL}>Total cost</label>
+            <label className={LABEL}>Total biaya</label>
             <input
               type="number" step="0.01"
               value={form.total_cost}
               onChange={(e) => setForm({ ...form, total_cost: e.target.value })}
               className={INPUT}
-              placeholder="e.g. 150000"
+              placeholder="cth. 150000"
               required
             />
             {form.current_stock > 0 && form.total_cost > 0 && (
@@ -333,7 +324,7 @@ function AddIngredientModal({ onClose, onSaved }) {
             )}
           </div>
           <div>
-            <label className={LABEL}>Low stock threshold</label>
+            <label className={LABEL}>Ambang batas stok menipis</label>
             <input
               type="number" step="0.001"
               value={form.low_stock_threshold}
@@ -345,7 +336,7 @@ function AddIngredientModal({ onClose, onSaved }) {
         </div>
 
         <div>
-          <label className={LABEL}>Expiry date</label>
+          <label className={LABEL}>Tanggal kadaluwarsa</label>
           <div className="flex gap-2 items-center">
             <input
               type="date"
@@ -359,7 +350,7 @@ function AddIngredientModal({ onClose, onSaved }) {
               disabled={!form.name || form.aiLoading}
               className={AI_BUTTON}
             >
-              <IconSparkles className="w-3 h-3" /> {form.aiLoading ? 'Generating…' : 'AI expiry'}
+              <IconSparkles className="w-3 h-3" /> {form.aiLoading ? 'Membuat…' : 'Kadaluwarsa AI'}
             </button>
           </div>
           {form.aiNote && <p className="text-xs text-[#8B96A6] mt-1.5">{form.aiNote}</p>}
@@ -369,10 +360,10 @@ function AddIngredientModal({ onClose, onSaved }) {
 
         <div className="flex gap-3 pt-1">
           <button type="button" onClick={onClose} className={`flex-1 ${BTN_SECONDARY}`}>
-            Cancel
+            Batal
           </button>
           <button type="submit" disabled={saving} className={`flex-1 ${BTN_PRIMARY}`}>
-            {saving ? 'Saving…' : 'Add Ingredient'}
+            {saving ? 'Menyimpan…' : 'Tambah Bahan'}
           </button>
         </div>
       </form>
@@ -426,11 +417,11 @@ function RestockModal({ ingredient, onClose, onSaved }) {
   }
 
   return (
-    <Modal title={`Restock — ${ingredient.name}`} subtitle={`Current stock: ${ingredient.current_stock} ${ingredient.unit}`} onClose={onClose}>
+    <Modal title={`Restock — ${ingredient.name}`} subtitle={`Stok saat ini: ${ingredient.current_stock} ${ingredient.unit}`} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className={LABEL}>Qty to add ({ingredient.unit})</label>
+            <label className={LABEL}>Jumlah yang ditambah ({ingredient.unit})</label>
             <input
               type="number" step="0.001"
               value={qty}
@@ -441,13 +432,13 @@ function RestockModal({ ingredient, onClose, onSaved }) {
             />
           </div>
           <div>
-            <label className={LABEL}>Total cost (optional)</label>
+            <label className={LABEL}>Total biaya (opsional)</label>
             <input
               type="number" step="0.01"
               value={totalCost}
               onChange={(e) => setTotalCost(e.target.value)}
               className={INPUT}
-              placeholder="e.g. 150000"
+              placeholder="cth. 150000"
             />
           </div>
         </div>
@@ -457,7 +448,7 @@ function RestockModal({ ingredient, onClose, onSaved }) {
           </p>
         )}
         <div>
-          <label className={LABEL}>Expiry date</label>
+          <label className={LABEL}>Tanggal kadaluwarsa</label>
           <div className="flex gap-2 items-center">
             <input
               type="date"
@@ -466,7 +457,7 @@ function RestockModal({ ingredient, onClose, onSaved }) {
               className={INPUT}
             />
             <button type="button" onClick={handleGenerateExpiry} disabled={aiLoading} className={AI_BUTTON}>
-              <IconSparkles className="w-3 h-3" /> {aiLoading ? 'Generating…' : 'AI expiry'}
+              <IconSparkles className="w-3 h-3" /> {aiLoading ? 'Membuat…' : 'Kadaluwarsa AI'}
             </button>
           </div>
           {aiNote && <p className="text-xs text-[#8B96A6] mt-1.5">{aiNote}</p>}
@@ -476,10 +467,10 @@ function RestockModal({ ingredient, onClose, onSaved }) {
 
         <div className="flex gap-3 pt-1">
           <button type="button" onClick={onClose} className={`flex-1 ${BTN_SECONDARY}`}>
-            Cancel
+            Batal
           </button>
           <button type="submit" disabled={saving || !qty} className={`flex-1 ${BTN_PRIMARY}`}>
-            {saving ? 'Saving…' : 'Confirm Restock'}
+            {saving ? 'Menyimpan…' : 'Konfirmasi Restock'}
           </button>
         </div>
       </form>
@@ -516,13 +507,13 @@ function WasteModal({ ingredient, onClose, onSaved }) {
 
   return (
     <Modal
-      title={`Mark as wasted — ${ingredient.name}`}
-      subtitle={`Current stock: ${ingredient.current_stock} ${ingredient.unit}`}
+      title={`Tandai rusak — ${ingredient.name}`}
+      subtitle={`Stok saat ini: ${ingredient.current_stock} ${ingredient.unit}`}
       onClose={onClose}
     >
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         <div>
-          <label className={LABEL}>Qty wasted ({ingredient.unit})</label>
+          <label className={LABEL}>Jumlah yang rusak ({ingredient.unit})</label>
           <input
             type="number" step="0.001"
             value={qty}
@@ -541,10 +532,10 @@ function WasteModal({ ingredient, onClose, onSaved }) {
 
         <div className="flex gap-3 pt-1">
           <button type="button" onClick={onClose} className={`flex-1 ${BTN_SECONDARY}`}>
-            Cancel
+            Batal
           </button>
           <button type="submit" disabled={saving || !qty} className={`flex-1 ${BTN_PRIMARY}`}>
-            {saving ? 'Saving…' : 'Confirm'}
+            {saving ? 'Menyimpan…' : 'Konfirmasi'}
           </button>
         </div>
       </form>
@@ -648,7 +639,7 @@ function RestockFromReceiptModal({ onClose, onSaved }) {
   }
 
   return (
-    <Modal title="Restock from Receipt" subtitle="Upload foto struk/invoice, biar Stokita yang baca item, qty, dan harganya." onClose={onClose} wide>
+    <Modal title="Restock dari Struk" subtitle="Upload foto struk/invoice, biar Stokita yang baca item, qty, dan harganya." onClose={onClose} wide>
       {!receiptFile ? (
         <div
           onDragOver={(e) => { e.preventDefault(); setDragActive(true) }}
@@ -670,11 +661,11 @@ function RestockFromReceiptModal({ onClose, onSaved }) {
           />
           <IconUploadCloud className="w-8 h-8 text-[#8B96A6] mx-auto mb-3" />
           <p className="text-sm font-semibold text-[#18233D]">
-            Drag &amp; drop your receipt/invoice image here
+            Drag &amp; drop foto struk/invoice kamu di sini
           </p>
-          <p className="text-xs text-[#8B96A6] mt-1">or click to browse — JPG, PNG</p>
+          <p className="text-xs text-[#8B96A6] mt-1">atau klik buat pilih file — JPG, PNG</p>
           <span className={`${AI_BADGE} mt-3`}>
-            <IconSparkles className="w-3 h-3" /> Powered by Vision AI
+            <IconSparkles className="w-3 h-3" /> Didukung Vision AI
           </span>
         </div>
       ) : (
@@ -691,7 +682,7 @@ function RestockFromReceiptModal({ onClose, onSaved }) {
             onClick={() => { setReceiptFile(null); setReceiptItems(null); setReceiptError('') }}
             className="text-xs font-semibold text-[#5B6B82] hover:text-[#18233D] transition-colors shrink-0"
           >
-            Remove
+            Hapus
           </button>
           <button
             type="button"
@@ -699,7 +690,7 @@ function RestockFromReceiptModal({ onClose, onSaved }) {
             disabled={receiptLoading}
             className={`${BTN_PRIMARY} shrink-0`}
           >
-            {receiptLoading ? 'Reading receipt…' : 'Parse Receipt'}
+            {receiptLoading ? 'Membaca struk…' : 'Baca Struk'}
           </button>
         </div>
       )}
@@ -712,11 +703,11 @@ function RestockFromReceiptModal({ onClose, onSaved }) {
             <table className="w-full text-sm">
               <thead className="bg-[#F7F5F0] text-[#8B96A6] text-xs uppercase tracking-wide">
                 <tr>
-                  <th className="text-left px-3 py-2.5 font-bold">Name</th>
+                  <th className="text-left px-3 py-2.5 font-bold">Nama</th>
                   <th className="text-right px-3 py-2.5 font-bold">Qty</th>
-                  <th className="text-left px-3 py-2.5 font-bold">Unit</th>
-                  <th className="text-right px-3 py-2.5 font-bold">Total price</th>
-                  <th className="text-left px-3 py-2.5 font-bold">Expiry date</th>
+                  <th className="text-left px-3 py-2.5 font-bold">Satuan</th>
+                  <th className="text-right px-3 py-2.5 font-bold">Total harga</th>
+                  <th className="text-left px-3 py-2.5 font-bold">Tanggal kadaluwarsa</th>
                   <th className="text-left px-3 py-2.5"></th>
                 </tr>
               </thead>
@@ -764,7 +755,7 @@ function RestockFromReceiptModal({ onClose, onSaved }) {
                     </td>
                     <td className="px-3 py-2">
                       <button type="button" onClick={() => removeReceiptItem(i)} className={`text-xs font-semibold ${LINK_CRITICAL}`}>
-                        Remove
+                        Hapus
                       </button>
                     </td>
                   </tr>
@@ -774,10 +765,10 @@ function RestockFromReceiptModal({ onClose, onSaved }) {
           </div>
           <div className="flex gap-3">
             <button type="button" onClick={onClose} className={`flex-1 ${BTN_SECONDARY}`}>
-              Cancel
+              Batal
             </button>
             <button onClick={handleBulkRestock} disabled={bulkSubmitting} className={`flex-1 ${BTN_PRIMARY}`}>
-              {bulkSubmitting ? 'Submitting...' : `Confirm & Restock ${receiptItems.length} item(s)`}
+              {bulkSubmitting ? 'Mengirim...' : `Konfirmasi & Restock ${receiptItems.length} item`}
             </button>
           </div>
         </>
@@ -826,7 +817,7 @@ function EditIngredientModal({ ingredient, onClose, onSaved }) {
     <Modal title={`Edit — ${ingredient.name}`} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         <div>
-          <label className={LABEL}>Name</label>
+          <label className={LABEL}>Nama</label>
           <input
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -835,7 +826,7 @@ function EditIngredientModal({ ingredient, onClose, onSaved }) {
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className={LABEL}>Unit</label>
+            <label className={LABEL}>Satuan</label>
             <select
               value={form.unit}
               onChange={(e) => setForm({ ...form, unit: e.target.value })}
@@ -847,7 +838,7 @@ function EditIngredientModal({ ingredient, onClose, onSaved }) {
             </select>
           </div>
           <div>
-            <label className={LABEL}>Cost / unit</label>
+            <label className={LABEL}>Biaya / unit</label>
             <input
               type="number" step="0.01"
               value={form.cost_per_unit}
@@ -857,7 +848,7 @@ function EditIngredientModal({ ingredient, onClose, onSaved }) {
           </div>
         </div>
         <div>
-          <label className={LABEL}>Low stock threshold</label>
+          <label className={LABEL}>Ambang batas stok menipis</label>
           <input
             type="number" step="0.001"
             value={form.low_stock_threshold}
@@ -867,17 +858,17 @@ function EditIngredientModal({ ingredient, onClose, onSaved }) {
           />
         </div>
         <p className="text-xs text-[#8B96A6]">
-          Current stock: {ingredient.current_stock} {ingredient.unit} — locked, use Restock to change it.
+          Stok saat ini: {ingredient.current_stock} {ingredient.unit} — terkunci, pakai Restock buat mengubahnya.
         </p>
 
         {error && <p className={ERROR_BANNER}>{error}</p>}
 
         <div className="flex gap-3 pt-1">
           <button type="button" onClick={onClose} className={`flex-1 ${BTN_SECONDARY}`}>
-            Cancel
+            Batal
           </button>
           <button type="submit" disabled={saving} className={`flex-1 ${BTN_PRIMARY}`}>
-            {saving ? 'Saving…' : 'Save changes'}
+            {saving ? 'Menyimpan…' : 'Simpan perubahan'}
           </button>
         </div>
       </form>
@@ -920,7 +911,7 @@ function RowActionMenu({ onRestock, onEdit, onWaste, onDelete }) {
         ref={btnRef}
         type="button"
         onClick={handleToggle}
-        aria-label="More actions"
+        aria-label="Aksi lainnya"
         aria-expanded={open}
         className="w-7 h-7 flex items-center justify-center rounded-full text-[#8B96A6] hover:bg-[#F7F5F0] hover:text-[#18233D] transition-colors"
       >
@@ -947,7 +938,7 @@ function RowActionMenu({ onRestock, onEdit, onWaste, onDelete }) {
             onClick={() => { setOpen(false); onWaste() }}
             className="w-full flex items-center gap-2 text-left px-3 py-2 text-sm text-[#B8433B] hover:bg-[#FBEBEA] transition-colors"
           >
-            <IconAlertTriangle className="w-3.5 h-3.5" /> Mark as wasted
+            <IconAlertTriangle className="w-3.5 h-3.5" /> Tandai rusak
           </button>
           <div className="my-1 border-t border-[#E4E2DC]" />
           <button
@@ -955,7 +946,7 @@ function RowActionMenu({ onRestock, onEdit, onWaste, onDelete }) {
             onClick={() => { setOpen(false); onDelete() }}
             className="w-full flex items-center gap-2 text-left px-3 py-2 text-sm text-[#B8433B] hover:bg-[#FBEBEA] transition-colors"
           >
-            <IconTrash className="w-3.5 h-3.5" /> Delete
+            <IconTrash className="w-3.5 h-3.5" /> Hapus
           </button>
         </div>
       )}
@@ -971,8 +962,8 @@ function PaginationFooter({ page, totalPages, onPrev, onNext, startIdx, endIdx, 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 border-t border-[#E4E2DC]">
       <p className="text-xs text-[#8B96A6]">
-        Showing <span className="font-semibold text-[#5B6B82]">{startIdx}–{endIdx}</span> of{' '}
-        <span className="font-semibold text-[#5B6B82]">{total}</span> {itemLabel}{total === 1 ? '' : 's'}
+        Menampilkan <span className="font-semibold text-[#5B6B82]">{startIdx}–{endIdx}</span> dari{' '}
+        <span className="font-semibold text-[#5B6B82]">{total}</span> {itemLabel}
       </p>
       {totalPages > 1 && (
         <div className="flex items-center gap-1.5">
@@ -980,14 +971,14 @@ function PaginationFooter({ page, totalPages, onPrev, onNext, startIdx, endIdx, 
             type="button" onClick={onPrev} disabled={page === 1}
             className={`${BTN_SECONDARY} px-3 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed`}
           >
-            Prev
+            Sebelumnya
           </button>
           <span className="text-xs text-[#8B96A6] px-1 tabular-nums">{page} / {totalPages}</span>
           <button
             type="button" onClick={onNext} disabled={page === totalPages}
             className={`${BTN_SECONDARY} px-3 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed`}
           >
-            Next
+            Selanjutnya
           </button>
         </div>
       )}
@@ -1139,7 +1130,7 @@ export default function IngredientsPage() {
           between the ingredient list and its audit trail reads as one system. */}
       <div className="bg-white rounded-2xl px-4 py-3 mb-6">
         <div className="inline-flex rounded-full bg-[#F7F5F0] p-1 gap-1">
-          {[{ id: 'ingredients', label: 'Ingredients' }, { id: 'history', label: 'Movement History' }].map((t) => (
+          {[{ id: 'ingredients', label: 'Bahan' }, { id: 'history', label: 'Riwayat Pergerakan' }].map((t) => (
             <button
               key={t.id}
               type="button"
@@ -1164,7 +1155,7 @@ export default function IngredientsPage() {
       <section className="mb-8">
         <div className={`bg-white rounded-2xl ${SHADOW_CARD} overflow-hidden`}>
           <div className="px-5 py-4 border-b border-[#E4E2DC]">
-            <h2 className="text-[15px] font-bold text-[#18233D]">Restock Recommendation</h2>
+            <h2 className="text-[15px] font-bold text-[#18233D]">Rekomendasi Restock</h2>
             <p className="text-xs text-[#8B96A6] mt-0.5">Berdasarkan rata-rata pemakaian 30 hari terakhir, buat kebutuhan 7 hari ke depan.</p>
           </div>
 
@@ -1187,11 +1178,11 @@ export default function IngredientsPage() {
               <table className="w-full text-sm min-w-[560px]">
                 <thead>
                   <tr className="bg-[#F7F5F0]/60 border-b border-[#E4E2DC] text-left text-xs font-semibold uppercase tracking-wider text-[#8B96A6]">
-                    <th className="px-5 py-3">Ingredient</th>
-                    <th className="px-5 py-3 text-right">Current Stock</th>
-                    <th className="px-5 py-3 text-right">Avg. Daily Usage</th>
-                    <th className="px-5 py-3 text-right">Suggested Restock</th>
-                    <th className="px-5 py-3 text-center w-20">Actions</th>
+                    <th className="px-5 py-3">Bahan</th>
+                    <th className="px-5 py-3 text-right">Stok Saat Ini</th>
+                    <th className="px-5 py-3 text-right">Rata-rata Pemakaian Harian</th>
+                    <th className="px-5 py-3 text-right">Saran Restock</th>
+                    <th className="px-5 py-3 text-center w-20">Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1235,7 +1226,7 @@ export default function IngredientsPage() {
       <section className="mb-8">
         <div className={`bg-white rounded-2xl ${SHADOW_CARD} overflow-hidden`}>
           <div className="px-5 py-4 border-b border-[#E4E2DC]">
-            <h2 className="text-[15px] font-bold text-[#18233D]">Expiry Alerts</h2>
+            <h2 className="text-[15px] font-bold text-[#18233D]">Peringatan Kadaluwarsa</h2>
           </div>
 
           {expiringLoading ? (
@@ -1257,10 +1248,10 @@ export default function IngredientsPage() {
               <table className="w-full text-sm min-w-[520px]">
                 <thead>
                   <tr className="bg-[#F7F5F0]/60 border-b border-[#E4E2DC] text-left text-xs font-semibold uppercase tracking-wider text-[#8B96A6]">
-                    <th className="px-5 py-3">Ingredient</th>
-                    <th className="px-5 py-3 text-right">Stock</th>
-                    <th className="px-5 py-3">Expiry date</th>
-                    <th className="px-5 py-3 text-center">Urgency</th>
+                    <th className="px-5 py-3">Bahan</th>
+                    <th className="px-5 py-3 text-right">Stok</th>
+                    <th className="px-5 py-3">Tanggal Kadaluwarsa</th>
+                    <th className="px-5 py-3 text-center">Urgensi</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1290,14 +1281,14 @@ export default function IngredientsPage() {
       <section>
         <div className={`bg-white rounded-2xl ${SHADOW_CARD} overflow-hidden`}>
           <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-[#E4E2DC]">
-            <h2 className="text-[15px] font-bold text-[#18233D]">Ingredient List</h2>
+            <h2 className="text-[15px] font-bold text-[#18233D]">Daftar Bahan</h2>
             <div className="flex flex-wrap items-center gap-3">
               <div className="relative">
                 <IconSearch className="w-4 h-4 text-[#8B96A6] absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search ingredients…"
+                  placeholder="Cari bahan…"
                   className={`${INPUT} w-56 pl-9`}
                 />
               </div>
@@ -1307,10 +1298,10 @@ export default function IngredientsPage() {
                   onChange={(e) => setStatusFilter(e.target.value)}
                   className={`${INPUT} appearance-none pr-8 w-40`}
                 >
-                  <option value="all">All statuses</option>
-                  <option value="in_stock">In Stock</option>
-                  <option value="low_stock">Low Stock</option>
-                  <option value="out_of_stock">Out of Stock</option>
+                  <option value="all">Semua status</option>
+                  <option value="in_stock">Stok Aman</option>
+                  <option value="low_stock">Stok Menipis</option>
+                  <option value="out_of_stock">Stok Habis</option>
                 </select>
                 <svg
                   className="w-3.5 h-3.5 text-[#8B96A6] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
@@ -1341,7 +1332,7 @@ export default function IngredientsPage() {
                 <IconPackage className="w-5 h-5 text-[#8B96A6]" />
               </div>
               <p className="text-sm font-semibold text-[#18233D]">
-                {ingredients.length === 0 ? 'Belum ada ingredient' : 'Gak ada yang cocok'}
+                {ingredients.length === 0 ? 'Belum ada bahan' : 'Gak ada yang cocok'}
               </p>
               <p className="text-sm text-[#5B6B82] mt-1">
                 {ingredients.length === 0
@@ -1350,7 +1341,7 @@ export default function IngredientsPage() {
               </p>
               {ingredients.length === 0 && (
                 <button onClick={() => setAddModalOpen(true)} className={`${BTN_PRIMARY} mt-4`}>
-                  <span className="inline-flex items-center gap-1.5"><IconPlus className="w-4 h-4" /> Add Ingredient</span>
+                  <span className="inline-flex items-center gap-1.5"><IconPlus className="w-4 h-4" /> Tambah Bahan</span>
                 </button>
               )}
             </div>
@@ -1360,11 +1351,11 @@ export default function IngredientsPage() {
                 <table className="w-full text-sm min-w-[640px]">
                   <thead>
                     <tr className="bg-[#F7F5F0]/60 border-b border-[#E4E2DC] text-left text-xs font-semibold uppercase tracking-wider text-[#8B96A6]">
-                      <th className="px-5 py-3">Name</th>
-                      <th className="px-5 py-3 text-right">Stock</th>
-                      <th className="px-5 py-3 text-right">Cost/unit</th>
+                      <th className="px-5 py-3">Nama</th>
+                      <th className="px-5 py-3 text-right">Stok</th>
+                      <th className="px-5 py-3 text-right">Biaya/unit</th>
                       <th className="px-5 py-3 text-center">Status</th>
-                      <th className="px-5 py-3 text-center w-12">Actions</th>
+                      <th className="px-5 py-3 text-center w-12">Aksi</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1426,7 +1417,7 @@ export default function IngredientsPage() {
       <section>
         <div className={`bg-white rounded-2xl ${SHADOW_CARD} overflow-hidden`}>
           <div className="px-5 py-4 border-b border-[#E4E2DC]">
-            <h2 className="text-[15px] font-bold text-[#18233D]">Stock Movement History</h2>
+            <h2 className="text-[15px] font-bold text-[#18233D]">Riwayat Pergerakan Stok</h2>
           </div>
 
           {movementsLoading ? (
@@ -1454,11 +1445,11 @@ export default function IngredientsPage() {
                 <table className="w-full text-sm min-w-[560px]">
                   <thead>
                     <tr className="bg-[#F7F5F0]/60 border-b border-[#E4E2DC] text-left text-xs font-semibold uppercase tracking-wider text-[#8B96A6]">
-                      <th className="px-5 py-3">Date</th>
-                      <th className="px-5 py-3">Ingredient</th>
-                      <th className="px-5 py-3 text-center">Type</th>
-                      <th className="px-5 py-3 text-right">Change</th>
-                      <th className="px-5 py-3">By</th>
+                      <th className="px-5 py-3">Tanggal</th>
+                      <th className="px-5 py-3">Bahan</th>
+                      <th className="px-5 py-3 text-center">Jenis</th>
+                      <th className="px-5 py-3 text-right">Perubahan</th>
+                      <th className="px-5 py-3">Oleh</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1493,7 +1484,7 @@ export default function IngredientsPage() {
                 startIdx={movementPageStart + 1}
                 endIdx={Math.min(movementPageStart + MOVEMENT_PAGE_SIZE, movements.length)}
                 total={movements.length}
-                itemLabel="record"
+                itemLabel="riwayat"
               />
             </>
           )}

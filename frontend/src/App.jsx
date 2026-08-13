@@ -57,7 +57,7 @@ function App() {
   if (authStatus === 'checking') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#F7F5F0]">
-        <p className="text-sm text-[#5B6B82]">Loading…</p>
+        <p className="text-sm text-[#5B6B82]">Memuat…</p>
       </div>
     )
   }
