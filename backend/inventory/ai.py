@@ -50,7 +50,7 @@ def estimate_shelf_life(ingredient_name: str, notes: str = ""):
     try:
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
         response = client.models.generate_content(
-            model="gemini-3.6-flash",
+            model="gemini-2.5-flash",
             contents=[prompt],
             config={
                 "response_mime_type": "application/json",
@@ -95,7 +95,7 @@ def parse_receipt(image_bytes: bytes, mime_type: str):
     try:
         client = genai.Client(api_key=settings.GEMINI_API_KEY)
         response = client.models.generate_content(
-            model="gemini-3.6-flash",
+            model="gemini-2.5-flash",
             contents=[
                 types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
                 prompt,
