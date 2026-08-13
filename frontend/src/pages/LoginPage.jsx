@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import api from '../api/client'
+import stokitaLogo from '../assets/stokita_logo.png'
+import stokitaName from '../assets/stokita_name.png'
 import GoogleSignInButton from '../components/GoogleSignInButton'
 
 /* =========================================================================
@@ -164,14 +166,7 @@ export default function LoginPage({ onLoginSuccess, onSwitchToRegister }) {
           aria-hidden="true"
         />
 
-        <div className="relative">
-          <div className="flex items-center gap-2 mb-16 md:mb-24">
-            <div className="w-2 h-2 rounded-full bg-[#5B8FD9]" />
-            <span className="text-sm tracking-[0.2em] uppercase text-white/50 font-bold">
-              Stokita
-            </span>
-          </div>
-
+        <div className="relative pt-16 md:pt-24">
           <h1 className="font-extrabold text-4xl md:text-5xl leading-[1.1] tracking-tight max-w-md">
             Apa yang harus kamu lakuin hari ini?
           </h1>
@@ -187,8 +182,22 @@ export default function LoginPage({ onLoginSuccess, onSwitchToRegister }) {
       </div>
 
       {/* RIGHT — form panel */}
-      <div className="md:w-1/2 bg-[#F7F5F0] flex items-center justify-center px-8 py-12 md:p-14">
+      <div className="md:w-1/2 bg-[#F7F5F0] flex flex-col items-center justify-center px-8 py-12 md:p-14 relative">
         <div className="w-full max-w-sm">
+          {/* Logo prominently placed on the light background */}
+          <div className="flex items-center justify-center gap-4 mb-10">
+            <img 
+              src={stokitaLogo} 
+              alt="Stokita Logo" 
+              className="w-20 h-20 object-contain" 
+            />
+            <img 
+              src={stokitaName} 
+              alt="Stokita Name" 
+              className="h-9 w-auto object-contain" 
+            />
+          </div>
+
           <h2 className="text-2xl font-extrabold tracking-tight text-[#18233D] mb-8">
             Selamat datang kembali
           </h2>

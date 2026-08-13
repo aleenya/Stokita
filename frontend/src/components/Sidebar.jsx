@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import api from '../api/client'
+import stokitaLogo from '../assets/stokita_logo.png'
+import stokitaName from '../assets/stokita_name.png'
 import GoogleSignInButton from './GoogleSignInButton'
 
 /* =========================================================================
@@ -153,8 +155,8 @@ export default function Sidebar({
         }`}
       >
         <div className="h-14 flex items-center gap-2.5 px-5 pt-4">
-          <Logo />
-          <span className="text-[13px] font-bold tracking-tight text-[#8B96A6]">Stokita</span>
+          <img src={stokitaLogo} alt="Stokita Logo" className="w-6 h-6 object-contain" />
+          <img src={stokitaName} alt="Stokita Name" className="h-3.5 w-auto object-contain" />
           <button
             type="button"
             onClick={onMobileClose}
