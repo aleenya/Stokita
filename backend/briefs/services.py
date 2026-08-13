@@ -90,6 +90,109 @@ def _build_pricing_context(business):
 
     return {"profit": profit, "expiring_soon": expiring_soon}
 
+def _build_chat_context(business):
+    """
+    Context khusus untuk Stokita AI Chatbot.
+
+    Berbeda dengan _build_pricing_context(), context ini mencakup
+    inventory + profit/menu data karena chatbot perlu menjawab
+    pertanyaan owner secara lebih luas.
+    """
+
+    # =========================
+    # INVENTORY
+    # =========================
+
+    ingredients = []
+
+    for ingredient in Ingredient.objects.filter(business=business):
+        ingredients.append({
+            "id": str(ingredient.id),
+            "name": ingredient.name,
+            "current_stock": float(ingredient.current_stock),
+            "unit": ingredient.unit,
+        })
+
+    # =========================
+    # MENU + PROFIT
+    # =========================
+
+    menus = []
+
+    for menu in Menu.objects.filter(business=business):
+        items = SaleItem.objects.filter(
+            menu=menu,
+            sale__business=business,
+        )
+
+        agg = items.aggregate(
+            revenue=Sum(
+                ExpressionWrapper(
+                    F("unit_price") * F("quantity"),
+                    output_field=DecimalField(),
+                )
+            ),
+            cost=Sum(
+                ExpressionWrapper(
+                    F("unit_cost") * F("quantity"),
+                    output_field=DecimalField(),
+                )
+            ),
+            quantity_sold=Sum("quantity"),
+        )
+
+        revenue = agg["revenue"] or 0
+        cost = agg["cost"] or 0
+        quantity_sold = agg["quantity_sold"] or 0
+
+        margin_pct = (
+            float((revenue - cost) / revenue * 100)
+            if revenue
+            else 0
+        )
+
+        menus.append({
+            "id": str(menu.id),
+            "name": menu.name,
+            "sell_price": float(menu.sell_price),
+            "unit_cost": float(menu.unit_cost()),
+            "revenue": float(revenue),
+            "cost": float(cost),
+            "quantity_sold": float(quantity_sold),
+            "margin_pct": round(margin_pct, 1),
+            "margin_state": classify_margin_state(
+                margin_pct,
+                float(menu.target_margin),
+            ),
+        })
+
+    # =========================
+    # EXPIRING SOON
+    # =========================
+
+    soon = date.today() + timedelta(days=3)
+
+    expiring = StockMovement.objects.filter(
+        ingredient__business=business,
+        expiry_date__lte=soon,
+        expiry_date__isnull=False,
+        movement_type=StockMovement.RESTOCK,
+    ).select_related("ingredient")
+
+    expiring_soon = []
+
+    for movement in expiring:
+        expiring_soon.append({
+            "ingredient_id": str(movement.ingredient.id),
+            "name": movement.ingredient.name,
+            "expiry_date": movement.expiry_date.isoformat(),
+        })
+
+    return {
+        "ingredients": ingredients,
+        "menus": menus,
+        "expiring_soon": expiring_soon,
+    }
 
 @transaction.atomic
 def generate_daily_brief(business):

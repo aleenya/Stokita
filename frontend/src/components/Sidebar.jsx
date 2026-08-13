@@ -74,7 +74,7 @@ export const NAV_ITEMS = [
   { key: 'menus', label: 'Menu', Icon: IconMenus },
   { key: 'sales', label: 'Penjualan', Icon: IconSales },
   { key: 'profit', label: 'Performa', Icon: IconPerformance },
-  { key: 'people', label: 'Staff', Icon: IconPeople },
+  { key: 'people', label: 'Staf', Icon: IconPeople },
 ]
 
 export const pageLabel = (key) => NAV_ITEMS.find((i) => i.key === key)?.label || 'Stokita'
@@ -101,7 +101,6 @@ export default function Sidebar({
   userName = 'User',
   userRole = 'Staff',
   onLogout = () => {},
-  onAskStokita = () => {},
   mobileOpen = false, // Nilai default aman
   onMobileClose = () => {}, // Nilai default aman
 }) {
@@ -214,7 +213,7 @@ export default function Sidebar({
             <svg className="w-[15px] h-[15px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
-            <span>Tanya Stokita&hellip;</span>
+            <span>Ask Stokita&hellip;</span>
           </button>
         </div>
 

@@ -103,20 +103,20 @@ export default function PeoplePage() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-[22px] font-extrabold tracking-tight text-[#18233D] mb-1">Staff</h1>
+      <h1 className="text-[22px] font-extrabold tracking-tight text-[#18233D] mb-1">Staf</h1>
       <p className="text-sm text-[#5B6B82] mb-6">
-        Kasih akses tambahan ke staff tertentu yang kamu percaya — di luar akses default staff.
+        Kasih akses tambahan ke staf tertentu yang kamu percaya.
       </p>
 
       {businessCode && (
         <div className={`bg-white rounded-xl ${SHADOW_CARD} p-5 mb-6 flex items-center justify-between gap-4`}>
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-[#8B96A6] mb-1">
-              Kode join staff
+              Kode join staf
             </p>
             <p className="font-mono text-sm text-[#18233D]">{businessCode}</p>
             <p className="text-xs text-[#8B96A6] mt-1">
-              Kasih kode ini ke staff yang mau join business kamu.
+              Kasih kode ini ke staf yang mau join business kamu.
             </p>
           </div>
           <button onClick={copyBusinessCode} className={BTN_SECONDARY}>
@@ -130,7 +130,7 @@ export default function PeoplePage() {
       {loading ? (
         <p className="text-sm text-[#5B6B82]">Memuat...</p>
       ) : staff.length === 0 ? (
-        <p className="text-sm text-[#5B6B82]">Belum ada staff di business ini.</p>
+        <p className="text-sm text-[#5B6B82]">Belum ada staf di business ini.</p>
       ) : (
         <div className="space-y-4">
           {staff.map((s) => (

@@ -15,7 +15,8 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
+from django.views.generic import TemplateView
 from accounts.views import (
     CsrfCookieView, GoogleLinkView, GoogleLoginView, LoginView, LogoutView, RefreshView, RegisterView,
 )
@@ -28,10 +29,14 @@ urlpatterns = [
     path("api/v1/", include("sales.urls")),
     path("api/v1/", include("briefs.urls")),
     path("api/v1/auth/csrf/", CsrfCookieView.as_view()),
+    path("api/v1/chat/", include("chat.urls")),
     path("api/v1/auth/login/", LoginView.as_view()),
     path("api/v1/auth/logout/", LogoutView.as_view()),
     path("api/v1/auth/refresh/", RefreshView.as_view()),
     path("api/v1/auth/register/", RegisterView.as_view()),
     path("api/v1/auth/google/login/", GoogleLoginView.as_view()),
     path("api/v1/auth/google/link/", GoogleLinkView.as_view()),
+    
+    # Catch-all route for React SPA fallback
+    re_path(r'^.*$', TemplateView.as_view(template_name='index.html')),
 ]
