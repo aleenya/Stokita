@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import api from '../api/client'
 
 /* =========================================================================
@@ -15,6 +15,8 @@ const TONE_BADGE = {
   critical: 'text-[#B8433B] bg-[#FBEBEA]',
   warning: 'text-[#A2670C] bg-[#FCF3E2]',
   success: 'text-[#2E7D53] bg-[#EAF5EE]',
+  teal: 'text-[#2A7A82] bg-[#E8F4F5]',
+  muted: 'text-[#5B6B82] bg-[#F0EDE6]',
 }
 
 /* =========================================================================
@@ -82,6 +84,368 @@ function rangeLabelText(range) {
 function todayStr() {
   return new Date().toISOString().slice(0, 10)
 }
+
+function fmtDateTime(d) {
+  if (!d) return '—'
+  const dt = d instanceof Date ? d : new Date(d)
+  return (
+    dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) +
+    ', ' +
+    dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+  )
+}
+
+const extractList = (data) => {
+  if (Array.isArray(data)) return data
+  if (data && Array.isArray(data.results)) return data.results
+  return []
+}
+
+/* =========================================================================
+   DECISION FEEDBACK — SUB-COMPONENTS
+   ========================================================================= */
+
+const ANSWER_META = {
+  positive:      { label: 'Positive',      tone: 'success',  icon: '✓' },
+  negative:      { label: 'Negative',      tone: 'critical', icon: '✗' },
+  inconclusive:  { label: 'Inconclusive',  tone: 'muted',    icon: '?' },
+  external:      { label: 'Likely External', tone: 'warning', icon: '↗' },
+}
+
+function ImpactCountdown({ target }) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!target) return
+    const id = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [target])
+  if (!target) return null
+  let diff = new Date(target).getTime() - now
+  if (diff <= 0) return <>Ready to generate</>
+  const d = Math.floor(diff / 86400000)
+  const h = Math.floor((diff % 86400000) / 3600000)
+  const m = Math.floor((diff % 3600000) / 60000)
+  const s = Math.floor((diff % 60000) / 1000)
+  const pad = (n) => String(n).padStart(2, '0')
+  return <>Next in {d > 0 ? `${d}d ` : ''}{pad(h)}:{pad(m)}:{pad(s)}</>
+}
+
+function FeedbackActionCard({ action, impacts, isPast }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const typeBadge = action.action_type === 'discount'
+    ? { label: `Discount ${action.discount_pct ?? ''}%`.trim(), tone: 'warning' }
+    : { label: 'Review Price', tone: 'teal' }
+
+  const latestImpact = impacts.length > 0 ? impacts[0] : null
+
+  return (
+    <div className={`rounded-xl bg-white ${SHADOW_CARD} overflow-hidden transition-all ${
+      isPast ? 'opacity-70' : ''
+    }`}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center justify-between gap-3 px-4 sm:px-5 py-4 text-left hover:bg-[#FAFAF8] transition-colors"
+      >
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <p className={`text-[15px] font-semibold truncate ${
+              isPast ? 'text-[#8B96A6]' : 'text-[#18233D]'
+            }`}>
+              {action.title}
+            </p>
+            {isPast && (
+              <span className={`text-[10px] font-bold uppercase tracking-wider ${TONE_BADGE.muted} rounded-full px-2 py-0.5 shrink-0`}>
+                Past
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-[#5B6B82] leading-relaxed line-clamp-1">{action.message}</p>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <span className={`text-xs font-semibold rounded-full px-2.5 py-1 ${TONE_BADGE[typeBadge.tone] || TONE_BADGE.warning}`}>
+            {typeBadge.label}
+          </span>
+          {latestImpact && (
+            <span className={`text-xs font-semibold rounded-full px-2.5 py-1 ${
+              TONE_BADGE[ANSWER_META[latestImpact.answer]?.tone] || TONE_BADGE.muted
+            }`}>
+              {ANSWER_META[latestImpact.answer]?.icon} {ANSWER_META[latestImpact.answer]?.label}
+            </span>
+          )}
+          <svg
+            className={`w-4 h-4 text-[#8B96A6] shrink-0 transition-transform duration-200 ${
+              isOpen ? 'rotate-180' : 'rotate-0'
+            }`}
+            fill="none" stroke="currentColor" strokeWidth="2.5"
+            strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24"
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </div>
+      </button>
+
+      {isOpen && (
+        <div className="border-t border-[#E4E2DC]/60">
+          {/* Action details */}
+          <div className="px-4 sm:px-5 py-3 bg-[#FAFAF8]">
+            <p className="text-sm text-[#5B6B82] leading-relaxed">{action.message}</p>
+            <p className="text-[11px] font-medium text-[#8B96A6] mt-2">
+              Acted {fmtDateTime(action.acted_at)}
+            </p>
+          </div>
+
+          {/* Impact summaries */}
+          {impacts.length > 0 ? (
+            <div className="px-4 sm:px-5 py-3 space-y-3">
+              <p className="text-[11px] font-bold text-[#8B96A6] uppercase tracking-wide">
+                Impact Analysis{impacts.length > 1 ? ` (${impacts.length} checks)` : ''}
+              </p>
+              {impacts.map((check) => {
+                const meta = ANSWER_META[check.answer] || ANSWER_META.inconclusive
+                return (
+                  <div key={check.id} className="rounded-lg bg-[#F7F5F0] px-4 py-3">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className={`text-xs font-semibold rounded-full px-2 py-0.5 ${TONE_BADGE[meta.tone]}`}>
+                        {meta.icon} {meta.label}
+                      </span>
+                      <span className="text-[11px] text-[#8B96A6]">
+                        {fmtDateTime(check.created_at)}
+                      </span>
+                    </div>
+                    <p className="text-sm text-[#5B6B82] leading-relaxed">{check.reasoning}</p>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="px-4 sm:px-5 py-3">
+              <p className="text-sm text-[#8B96A6] italic">
+                {isPast
+                  ? 'No summary was generated for this action.'
+                  : 'No impact summary yet — generate one using the button above.'}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function DecisionFeedbackTab() {
+  const [actionsRaw, setActionsRaw] = useState([])
+  const [impactData, setImpactData] = useState([])
+  const [canGenerate, setCanGenerate] = useState(true)
+  const [nextGenerateAt, setNextGenerateAt] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [generating, setGenerating] = useState(false)
+  const [toast, setToast] = useState('')
+  const toastTimer = useRef(null)
+
+  const showToast = useCallback((msg) => {
+    setToast(msg)
+    clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => setToast(''), 3500)
+  }, [])
+
+  useEffect(() => () => clearTimeout(toastTimer.current), [])
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [actionsRes, impactRes] = await Promise.all([
+        api.get('/briefs/actions/').catch(() => null),
+        api.get('/briefs/impact-history/').catch(() => null),
+      ])
+      setActionsRaw(extractList(actionsRes?.data))
+
+      const impactBody = impactRes?.data
+      if (impactBody && Array.isArray(impactBody.results)) {
+        setImpactData(impactBody.results)
+        setCanGenerate(impactBody.can_generate_now ?? true)
+        setNextGenerateAt(impactBody.next_generate_at ?? null)
+      } else {
+        setImpactData(extractList(impactBody))
+      }
+    } catch (err) {
+      // silently fail, show empty
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  // Split into active (≤30d) and past (>30d)
+  const cutoff30d = useMemo(() => {
+    const d = new Date()
+    d.setDate(d.getDate() - 30)
+    return d
+  }, [])
+
+  const activeActions = useMemo(
+    () => actionsRaw.filter((a) => a.acted_at && new Date(a.acted_at) >= cutoff30d),
+    [actionsRaw, cutoff30d]
+  )
+  const pastActions = useMemo(
+    () => actionsRaw.filter((a) => !a.acted_at || new Date(a.acted_at) < cutoff30d),
+    [actionsRaw, cutoff30d]
+  )
+
+  // Group impacts by action id
+  const impactsByAction = useMemo(() => {
+    const map = {}
+    for (const check of impactData) {
+      const key = check.action
+      if (!map[key]) map[key] = []
+      map[key].push(check)
+    }
+    // Sort each group newest first
+    for (const key of Object.keys(map)) {
+      map[key].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    }
+    return map
+  }, [impactData])
+
+  async function handleGenerate() {
+    if (!canGenerate) {
+      showToast('Impact summary masih dalam cooldown 3 hari.')
+      return
+    }
+    setGenerating(true)
+    try {
+      const res = await api.post('/briefs/generate-weekly-impact/')
+      if (res.data.generated_count === 0) {
+        showToast('AI API sedang sibuk atau gagal. Silakan coba lagi sebentar lagi.')
+      } else {
+        showToast(`Impact summary generated! (${res.data.generated_count} actions)`)
+      }
+      await load()
+    } catch (err) {
+      if (err.response?.status === 429) {
+        setCanGenerate(false)
+        setNextGenerateAt(err.response.data?.next_available_at ?? null)
+        showToast('Masih cooldown — tunggu 3 hari sejak generate terakhir.')
+      } else if (err.response?.status === 400) {
+        showToast(err.response.data?.detail || 'Belum ada aksi yang bisa dianalisis.')
+      } else {
+        showToast('Gagal generate impact summary.')
+      }
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  if (loading) {
+    return <p className="text-sm text-[#5B6B82] px-1 py-10 text-center">Loading...</p>
+  }
+
+  const noActions = activeActions.length === 0 && pastActions.length === 0
+
+  return (
+    <div className="space-y-8">
+      {/* Generate button */}
+      <div className={`bg-white rounded-xl ${SHADOW_CARD} px-5 py-4`}>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-[15px] font-bold text-[#18233D]">
+              AI Impact Summary
+            </h2>
+            <p className="text-sm text-[#5B6B82] mt-0.5">
+              Generate an AI analysis of how your recent decisions impacted performance.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleGenerate}
+            disabled={generating || !canGenerate || activeActions.length === 0}
+            title={
+              activeActions.length === 0
+                ? 'No active decisions to analyze'
+                : !canGenerate && nextGenerateAt
+                  ? `Available after ${fmtDateTime(nextGenerateAt)}`
+                  : undefined
+            }
+            className="shrink-0 text-sm font-semibold text-white bg-[#28579C] hover:bg-[#1E4278] disabled:opacity-50 disabled:cursor-not-allowed transition-colors rounded-full px-5 py-2.5"
+          >
+            {generating
+              ? 'Generating…'
+              : !canGenerate
+                ? <ImpactCountdown target={nextGenerateAt} />
+                : activeActions.length === 0
+                  ? 'No eligible actions'
+                  : 'Generate Impact Summary'}
+          </button>
+        </div>
+      </div>
+
+      {noActions ? (
+        <div className={`bg-white rounded-xl ${SHADOW_CARD} px-5 py-8 text-center`}>
+          <p className="text-sm font-semibold text-[#18233D]">No decisions yet.</p>
+          <p className="text-sm text-[#5B6B82] mt-1">
+            When you act on a recommendation in the Dashboard (discount or review menu), it will appear here for impact tracking.
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Active Decisions (≤ 30 days) */}
+          {activeActions.length > 0 && (
+            <section>
+              <p className="text-xs font-bold text-[#8B96A6] uppercase tracking-wide mb-3">
+                Active Decisions
+                <span className="ml-2 text-[#28579C] font-semibold normal-case">last 30 days</span>
+              </p>
+              <div className="space-y-2.5">
+                {activeActions.map((a) => (
+                  <FeedbackActionCard
+                    key={a.id}
+                    action={a}
+                    impacts={impactsByAction[a.id] || []}
+                    isPast={false}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Past Decisions (> 30 days) */}
+          {pastActions.length > 0 && (
+            <section>
+              <p className="text-xs font-bold text-[#8B96A6] uppercase tracking-wide mb-3">
+                Past Decisions
+                <span className="ml-2 text-[#5B6B82] font-semibold normal-case">older than 30 days</span>
+              </p>
+              <div className="space-y-2.5">
+                {pastActions.map((a) => (
+                  <FeedbackActionCard
+                    key={a.id}
+                    action={a}
+                    impacts={impactsByAction[a.id] || []}
+                    isPast={true}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+        </>
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div
+          className="fixed bottom-5 right-5 z-[70] max-w-xs rounded-lg bg-[#18233D] text-white px-4 py-3 shadow-lg text-sm font-medium"
+          style={{ animation: 'fadeIn .15s ease-out' }}
+        >
+          {toast}
+        </div>
+      )}
+      <style>{`@keyframes fadeIn { from { opacity:0; transform: translateY(2px);} to { opacity:1; transform:none;} }`}</style>
+    </div>
+  )
+}
+
 
 function TrendBadge({ pct, title }) {
   if (pct === null || pct === undefined || !isFinite(pct)) {
@@ -179,7 +543,7 @@ const METRIC_OPTIONS = [
 ]
 
 export default function ProfitPage() {
-  const [tab, setTab] = useState('overview') // 'overview' | 'compare'
+  const [tab, setTab] = useState('overview') // 'overview' | 'compare' | 'feedback'
   const [menus, setMenus] = useState([])
 
   const [period, setPeriod] = useState('30d')
@@ -274,7 +638,7 @@ export default function ProfitPage() {
 
       <div className="bg-white rounded-2xl px-4 py-3 mb-6">
         <div className="inline-flex rounded-full bg-[#F7F5F0] p-1 gap-1">
-          {[{ id: 'overview', label: 'Ringkasan' }, { id: 'compare', label: 'Bandingkan Menu' }].map((t) => (
+          {[{ id: 'overview', label: 'Ringkasan' }, { id: 'compare', label: 'Bandingkan Menu' }, { id: 'feedback', label: 'Decision Feedback' }].map((t) => (
             <button
               key={t.id}
               type="button"
@@ -289,6 +653,7 @@ export default function ProfitPage() {
         </div>
       </div>
 
+      {tab !== 'feedback' && (
       <div className="flex flex-wrap items-end gap-4 mb-6">
         <div>
           <label className={LABEL}>Periode</label>
@@ -331,6 +696,7 @@ export default function ProfitPage() {
           </>
         )}
       </div>
+      )}
 
       {tab === 'overview' ? (
         <>
@@ -411,7 +777,7 @@ export default function ProfitPage() {
             </>
           )}
         </>
-      ) : (
+      ) : tab === 'compare' ? (
         <>
           {compareError && <p className={`${ERROR_BANNER} mb-6`}>{compareError}</p>}
 
@@ -439,11 +805,6 @@ export default function ProfitPage() {
               ) : compareLoading || compareData === null ? (
                 <p className="text-sm text-[#5B6B82] px-1 py-10 text-center">Memuat...</p>
               ) : !compareData.a || !compareData.b ? (
-                // Backend returns null for a menu id it can't resolve for
-                // this business (e.g. deleted between page load and this
-                // fetch) — the old check (`!compareData?.a`) couldn't tell
-                // this apart from "still loading", so it got stuck showing
-                // "Loading..." forever with no way out.
                 <EmptyState title="Salah satu menu gak ketemu." body="Menu ini mungkin baru aja dihapus — pilih ulang menunya di atas." />
               ) : (
                 <CompareTable data={compareData} />
@@ -451,6 +812,8 @@ export default function ProfitPage() {
             </>
           )}
         </>
+      ) : (
+        <DecisionFeedbackTab />
       )}
     </div>
   )
