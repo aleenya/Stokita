@@ -10,6 +10,7 @@ import ProfitPage from './pages/ProfitPage'
 import PeoplePage from './pages/PeoplePage'
 import Dashboard from './pages/Dashboard'
 import Sidebar, { MobileTopbar, pageLabel } from './components/Sidebar'
+import ChatWidget from './components/ChatWidget'
 
 function AppLayout({ authStatus, authView, setAuthView, me, handleAuthSuccess, handleLogout }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -45,7 +46,6 @@ function AppLayout({ authStatus, authView, setAuthView, me, handleAuthSuccess, h
 
   // Convert pathname like "/profit" to "profit"
   const page = location.pathname.split('/')[1] || 'dashboard'
-  const isFullBleed = page === 'dashboard'
 
   return (
     <div
@@ -69,13 +69,12 @@ function AppLayout({ authStatus, authView, setAuthView, me, handleAuthSuccess, h
         userName={me?.full_name || me?.username || 'User'}
         userRole={me?.role || 'staff'}
         onLogout={handleLogout}
-        onAskStokita={() => {}}
         mobileOpen={sidebarOpen}
         onMobileClose={() => setSidebarOpen(false)}
       />
 
       <main className="flex-1 flex flex-col min-w-0 overflow-y-auto pt-14 md:pt-0 relative z-0">
-        <div className={isFullBleed ? '' : 'p-4 sm:p-6 md:p-8'}>
+        <div className="p-4 sm:p-6 md:p-8">
           <Routes>
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard ownerName={me?.full_name} onNavigate={(p) => navigate(`/${p}`)} />} />
@@ -88,6 +87,8 @@ function AppLayout({ authStatus, authView, setAuthView, me, handleAuthSuccess, h
           </Routes>
         </div>
       </main>
+
+      <ChatWidget />
     </div>
   )
 }

@@ -28,6 +28,7 @@ urlpatterns = [
     path("api/v1/", include("sales.urls")),
     path("api/v1/", include("briefs.urls")),
     path("api/v1/auth/csrf/", CsrfCookieView.as_view()),
+    path("api/v1/chat/", include("chat.urls")),
     path("api/v1/auth/login/", LoginView.as_view()),
     path("api/v1/auth/logout/", LogoutView.as_view()),
     path("api/v1/auth/refresh/", RefreshView.as_view()),

@@ -101,7 +101,6 @@ export default function Sidebar({
   userName = 'User',
   userRole = 'Staff',
   onLogout = () => {},
-  onAskStokita = () => {},
   mobileOpen = false, // Nilai default aman
   onMobileClose = () => {}, // Nilai default aman
 }) {
@@ -204,19 +203,6 @@ export default function Sidebar({
             )
           })}
         </nav>
-
-        <div className="px-3 pb-3">
-          <button
-            type="button"
-            onClick={onAskStokita}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-md border border-[#E4E2DC] bg-[#F7F5F0] text-left text-sm text-[#8B96A6] hover:border-[#CBD1DB] hover:text-[#5B6B82] transition-colors"
-          >
-            <svg className="w-[15px] h-[15px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-            </svg>
-            <span>Tanya Stokita&hellip;</span>
-          </button>
-        </div>
 
         <div className="relative" ref={identityRef}>
           {identityOpen && (

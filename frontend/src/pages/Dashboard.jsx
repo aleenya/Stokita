@@ -2,22 +2,73 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import api from '../api/client'
 
 /* =========================================================================
-   DESIGN TOKENS
+   DESIGN TOKENS — sama persis dengan Sidebar.jsx / IngredientsPage.jsx /
+   MenusPage.jsx / SalesPage.jsx / ProfitPage.jsx, biar Dashboard kerasa
+   satu produk yang sama, bukan halaman yang di-desain terpisah.
    ========================================================================= */
 
 const SHADOW_CARD =
-    'shadow-[0_2px_6px_rgba(24,35,61,0.06),0_10px_24px_-8px_rgba(24,35,61,0.22)]'
-const SHADOW_CARD_HOVER =
-    'hover:shadow-[0_4px_10px_rgba(24,35,61,0.08),0_16px_32px_-8px_rgba(24,35,61,0.28)]'
+  'shadow-[0_2px_6px_rgba(24,35,61,0.06),0_10px_24px_-8px_rgba(24,35,61,0.22)]'
 const SHADOW_FLOAT =
-    'shadow-[0_14px_32px_-10px_rgba(20,29,52,0.28),0_2px_8px_rgba(20,29,52,0.08)]'
+  'shadow-[0_14px_32px_-10px_rgba(20,29,52,0.28),0_2px_8px_rgba(20,29,52,0.08)]'
 
-const TONE = {
+const BTN_PRIMARY =
+  'text-sm font-semibold text-white bg-[#28579C] hover:bg-[#1E4278] transition-colors rounded-full px-4 py-2.5 disabled:opacity-50 disabled:cursor-not-allowed'
+const LINK_BRAND =
+  'text-xs font-semibold text-[#28579C] hover:text-[#1E4278] transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
+
+// Satu token dipake di SEMUA row (PriorityRow/StockRow/ExpiryRow/
+// ActionHistoryItem) buat judul/nama — sebelumnya masing-masing row nulis
+// class string sendiri-sendiri, dan `truncate` cuma ada di sebagian row,
+// jadi nama yang panjang kepotong beda-beda antar card (kesannya kayak
+// ukuran font-nya beda padahal sama-sama text-sm).
+const ROW_TITLE = 'text-sm font-semibold text-[#18233D] truncate'
+const ROW_SUBTEXT = 'text-xs text-[#5B6B82] mt-0.5'
+
+const HISTORY_LIMIT = 5
+
+const TONE_BADGE = {
   critical: 'text-[#B8433B] bg-[#FBEBEA]',
   warning: 'text-[#A2670C] bg-[#FCF3E2]',
   success: 'text-[#2E7D53] bg-[#EAF5EE]',
-  teal: 'text-[#2A7A82] bg-[#E8F4F5]',
+  neutral: 'text-[#8B96A6] bg-[#F7F5F0]',
 }
+
+/* =========================================================================
+   ICONS — inline SVG, stroke-based (sama konvensi kayak Sidebar.jsx /
+   IngredientsPage.jsx / MenusPage.jsx / SalesPage.jsx).
+   ========================================================================= */
+const ic = {
+  className: 'w-4 h-4', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
+  strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true,
+}
+const IconPlus = (p) => (
+  <svg {...ic} {...p}><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+)
+const IconWallet = (p) => (
+  <svg {...ic} {...p}><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" /><path d="M3 5v14a2 2 0 0 0 2 2h16v-5" /><path d="M18 12a2 2 0 0 0 0 4h4v-4Z" /></svg>
+)
+const IconBag = (p) => (
+  <svg {...ic} {...p}><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" /><line x1="3" y1="6" x2="21" y2="6" /><path d="M16 10a4 4 0 0 1-8 0" /></svg>
+)
+const IconChecklist = (p) => (
+  <svg {...ic} {...p}><path d="m9 11 3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
+)
+const IconAlertTriangle = (p) => (
+  <svg {...ic} {...p}><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+)
+const IconClock = (p) => (
+  <svg {...ic} {...p}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" /></svg>
+)
+const IconPackage = (p) => (
+  <svg {...ic} {...p}><path d="M21 8V5a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1v3" /><path d="M4 8h16v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z" /><path d="M10 12h4" /></svg>
+)
+const IconTag = (p) => (
+  <svg {...ic} {...p}><path d="M12.6 2.6 21 11l-8.4 8.4a2 2 0 0 1-2.8 0L3 12.6V4a1.4 1.4 0 0 1 1.4-1.4h8.2z" /><circle cx="8" cy="8" r="1.2" fill="currentColor" stroke="none" /></svg>
+)
+const IconHistory = (p) => (
+  <svg {...ic} {...p}><path d="M3 12a9 9 0 1 0 2.6-6.3L3 8" /><path d="M3 3v5h5" /><path d="M12 7v5l4 2" /></svg>
+)
 
 /* =========================================================================
    UTILITIES
@@ -28,19 +79,26 @@ const rupiah = (n) => 'Rp' + Math.round(Number(n) || 0).toLocaleString('id-ID')
 const fmtDate = (d) => {
   if (!d) return null
   const dt = d instanceof Date ? d : new Date(d)
-  return dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+  return dt.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })
 }
 
 const fmtDateTime = (d) => {
   const dt = d instanceof Date ? d : new Date(d)
   return (
-      dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) +
-      ', ' +
-      dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+    dt.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) +
+    ', ' +
+    dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
   )
 }
 
 const num = (v) => (v === null || v === undefined || v === '' ? 0 : Number(v))
+
+// Nama ingredient di database gak konsisten casing-nya (ada yang "ayam
+// potong" huruf kecil semua, ada yang "Ayam Potong") tergantung gimana
+// staff ngetiknya pas nambahin bahan — dinormalisasi ke Title Case di sini
+// biar tampilannya konsisten di seluruh Dashboard, gak peduli isi aslinya.
+const toTitleCase = (str) =>
+  String(str || '').toLowerCase().replace(/\b\p{L}/gu, (c) => c.toUpperCase())
 
 // DRF list endpoints bisa balikin array langsung ATAU object paginated
 // {count, next, previous, results: [...]} tergantung setting pagination —
@@ -76,6 +134,10 @@ function mapBriefAction(a) {
     actionLabel: 'Lihat detail',
     recommendation: a.message,
     reasoning: a.message,
+    // dulu dihitung tapi gak pernah ditampilin di mana pun — sekarang
+    // dipakai PriorityRow biar tiap baris kerasa ada "isinya", bukan cuma
+    // judul+deskripsi doang.
+    impact: a.rupiah_impact ? rupiah(a.rupiah_impact) : null,
     signals: [
       a.discount_pct != null ? `Diskon: ${a.discount_pct}%` : null,
       `Estimasi dampak: ${rupiah(a.rupiah_impact)}`,
@@ -93,6 +155,7 @@ function mapHistoryItem(a) {
     title: a.title,
     summary: a.message,
     discountLabel: a.action_type === 'discount' && a.discount_pct != null ? `Diskon ${a.discount_pct}% diterapkan` : null,
+    impact: a.rupiah_impact ? rupiah(a.rupiah_impact) : null,
     kind: 'brief',
     actionTakenAt: a.acted_at,
   }
@@ -105,7 +168,7 @@ function mapRestockItem(ing) {
   return {
     id: ing.id,
     refId: ing.id,
-    title: ing.name,
+    title: toTitleCase(ing.name),
     currentStock,
     recommendedQty: ing.recommended_restock_qty != null ? num(ing.recommended_restock_qty) : null,
     unit: ing.unit || '',
@@ -115,14 +178,18 @@ function mapRestockItem(ing) {
 }
 
 function mapExpiryItem(ing) {
+  // tone 'warning' (bukan 'critical') sengaja — buat owner, kehabisan stok
+  // jauh lebih mendesak daripada bahan mau kadaluwarsa: mending rugi kecil
+  // kebuang daripada pelanggan kecewa gara-gara stok abis. Jadi Peringatan
+  // Kadaluwarsa gak boleh "berteriak" sama kerasnya kayak Perlu Restock.
   return {
     id: ing.id,
     refId: ing.id,
-    title: ing.name,
+    title: toTitleCase(ing.name),
     summary: ing.expiry_date
-        ? `Kadaluwarsa ${fmtDate(ing.expiry_date)}`
-        : 'Segera kadaluwarsa',
-    badge: { label: 'Mendesak', tone: 'critical' },
+      ? `Kadaluwarsa ${fmtDate(ing.expiry_date)}`
+      : 'Segera kadaluwarsa',
+    badge: { label: 'Segera', tone: 'warning' },
     actionLabel: 'Ke halaman Stok',
     gotoPage: 'ingredients',
   }
@@ -132,9 +199,9 @@ function mapExpiryItem(ing) {
    SMALL PRESENTATIONAL PIECES
    ========================================================================= */
 
-function Badge({ label, tone = 'warning' }) {
+function StatusBadge({ tone, label }) {
   return (
-      <span className={`text-xs font-semibold ${TONE[tone] || TONE.warning} rounded-full px-2.5 py-1`}>
+    <span className={`text-xs font-semibold rounded-full px-2.5 py-1 ${TONE_BADGE[tone] || TONE_BADGE.neutral}`}>
       {label}
     </span>
   )
@@ -143,252 +210,237 @@ function Badge({ label, tone = 'warning' }) {
 function Trend({ pct, tooltip }) {
   if (pct === null || pct === undefined || !isFinite(pct)) {
     return (
-        <span className="text-xs text-[#8B96A6]" title={tooltip}>
-        —
-      </span>
+      <span className="text-xs text-[#8B96A6]" title={tooltip}>—</span>
     )
   }
   const up = pct >= 0
   return (
-      <span
-          title={tooltip}
-          className={`inline-flex items-center gap-0.5 text-xs font-semibold ${
-              up ? TONE.success : TONE.critical
-          } rounded px-1.5 py-0.5 cursor-help`}
-      >
+    <span
+      title={tooltip}
+      className={`inline-flex items-center gap-0.5 text-xs font-semibold ${
+        up ? TONE_BADGE.success : TONE_BADGE.critical
+      } rounded px-1.5 py-0.5 cursor-help`}
+    >
       <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         {up ? <path d="M12 4l8 10h-6v6h-4v-6H4z" /> : <path d="M12 20 4 10h6V4h4v6h6z" />}
       </svg>
-        {Math.abs(pct).toFixed(1)}%
+      {Math.abs(pct).toFixed(1)}%
     </span>
   )
 }
 
-function SkeletonPriority({ wide }) {
+/* =========================================================================
+   STAT STRIP — sama pattern kayak StatCell di IngredientsPage.jsx (ikon
+   dalam kotak brand-tinted + label kecil + angka besar), biar 3 halaman
+   pertama yang dibuka user (Hari Ini, Stock, Menu) kerasa satu sistem.
+   ========================================================================= */
+function StatCell({ icon, label, value, sub, trend, tone = 'neutral' }) {
+  const valueColor =
+    tone === 'warning' ? 'text-[#A2670C]' : tone === 'critical' ? 'text-[#B8433B]' : 'text-[#18233D]'
   return (
-      <div
-          className={`flex items-center gap-4 rounded-xl bg-white px-5 py-4 ${SHADOW_CARD} animate-pulse`}
-      >
-        <div className="w-5 h-5 rounded-full border-2 border-[#CBD1DB] shrink-0" />
-        <div className="flex-1 min-w-0 space-y-2">
-          <div className={`h-3.5 ${wide ? 'w-40' : 'w-32'} rounded bg-[#E4E2DC]`} />
-          <div className={`h-3 ${wide ? 'w-48' : 'w-56'} rounded bg-[#E4E2DC]`} />
-        </div>
+    <div className="flex items-center gap-3.5 px-6 py-4">
+      <div className="w-10 h-10 rounded-lg bg-[#1E4278] text-white flex items-center justify-center shrink-0 shadow-[0_2px_6px_rgba(30,66,120,0.35)]">
+        {icon}
       </div>
+      <div className="min-w-0">
+        <p className="text-xs font-semibold text-[#5B6B82] uppercase tracking-wide">{label}</p>
+        <div className="flex items-baseline gap-2">
+          <p className={`text-xl font-extrabold tabular-nums ${valueColor}`}>{value}</p>
+          {trend}
+        </div>
+        {sub && <p className="text-[11px] text-[#8B96A6] mt-0.5">{sub}</p>}
+      </div>
+    </div>
+  )
+}
+
+function SkeletonRow() {
+  return (
+    <div className="flex items-center gap-4 px-5 py-4">
+      <div className="w-5 h-5 rounded-full bg-[#F0EEE8] shrink-0" />
+      <div className="flex-1 min-w-0 space-y-2">
+        <div className="h-3.5 w-40 rounded bg-[#F0EEE8]" />
+        <div className="h-3 w-56 rounded bg-[#F0EEE8]" />
+      </div>
+      <div className="h-5 w-16 rounded-full bg-[#F0EEE8] shrink-0" />
+    </div>
   )
 }
 
 // -------------------------------------------------------------------------
-// Komponen Khusus Review/Discount
+// Empty state — ikon dalam lingkaran + judul + deskripsi, sama persis
+// pattern yang dipake IngredientsPage/MenusPage buat tabel kosong. Dipake
+// biar card kosong gak cuma satu baris teks abu-abu doang.
 // -------------------------------------------------------------------------
-function ReviewCard({ p, onToggle, onDismiss }) {
+function EmptyState({ icon, title, body, action }) {
   return (
-      <div
-          className={`group flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 rounded-xl bg-white px-4 sm:px-5 py-4 ${SHADOW_CARD} ${SHADOW_CARD_HOVER} transition-shadow`}
-      >
-        <div className="flex items-start gap-4 flex-1 min-w-0">
-          <button
-              type="button"
-              role="checkbox"
-              aria-checked={p.completed}
-              aria-label={`Tandai ${p.title} sebagai selesai`}
-              onClick={() => onToggle(p.id)}
-              className={`w-5 h-5 mt-0.5 sm:mt-1 rounded-full border-2 shrink-0 transition-colors flex items-center justify-center ${
-                  p.completed
-                      ? 'bg-[#2E7D53] border-[#2E7D53]'
-                      : 'border-[#CBD1DB] hover:border-[#28579C]'
-              }`}
-          >
-            {p.completed && (
-                <svg
-                    className="w-3 h-3 text-white"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                >
-                  <path d="M20 6 9 17l-5-5" />
-                </svg>
+    <div className="py-9 px-6 text-center">
+      <div className="w-11 h-11 rounded-full bg-[#F7F5F0] flex items-center justify-center mx-auto mb-3">
+        {icon}
+      </div>
+      <p className="text-sm font-semibold text-[#18233D]">{title}</p>
+      {body && <p className="text-sm text-[#5B6B82] mt-1 max-w-sm mx-auto">{body}</p>}
+      {action && <div className="mt-3">{action}</div>}
+    </div>
+  )
+}
+
+/* =========================================================================
+   CARD SECTION — satu shell dipake ulang buat semua 4 daftar (Review
+   Harga & Diskon, Riwayat Aksi, Stok Perlu Restock, Peringatan
+   Kadaluwarsa), sama persis pattern "white card, header + divide-y rows"
+   yang dipake Restock Recommendation / Expiry Alerts di IngredientsPage.
+   ========================================================================= */
+function CardSection({ title, count, subtitle, action, children, empty, loading }) {
+  return (
+    <section className={`bg-white rounded-2xl ${SHADOW_CARD} overflow-hidden`}>
+      <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[#E4E2DC]">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <h2 className="text-[15px] font-bold text-[#18233D]">{title}</h2>
+            {count != null && count > 0 && (
+              <span className="text-xs font-semibold text-[#8B96A6] bg-[#F7F5F0] rounded-full px-2 py-0.5 tabular-nums">{count}</span>
             )}
-          </button>
-          <div className="flex-1 min-w-0">
-            <p
-                className={`text-[15px] font-semibold ${
-                    p.completed ? 'text-[#8B96A6] line-through' : 'text-[#18233D]'
-                }`}
-            >
-              {p.title}
-            </p>
-            <p className="text-sm text-[#5B6B82] mt-0.5 leading-relaxed">{p.summary}</p>
           </div>
+          {subtitle && <p className="text-xs text-[#8B96A6] mt-0.5">{subtitle}</p>}
         </div>
-
-        <div className="flex items-center justify-between sm:flex-col sm:items-end gap-1.5 shrink-0 pl-9 sm:pl-0">
-          <Badge label={p.badge.label} tone={p.badge.tone} />
-          {!p.completed && (
-              <button
-                  type="button"
-                  onClick={() => onDismiss(p.id)}
-                  className="text-xs font-medium text-[#8B96A6] hover:text-[#5B6B82]"
-              >
-                Abaikan
-              </button>
-          )}
-        </div>
+        {action}
       </div>
+      {loading ? (
+        <div className="animate-pulse divide-y divide-[#E4E2DC]">
+          <SkeletonRow />
+          <SkeletonRow />
+        </div>
+      ) : empty ? (
+        empty
+      ) : (
+        <div className="divide-y divide-[#E4E2DC]">{children}</div>
+      )}
+    </section>
   )
 }
 
 // -------------------------------------------------------------------------
-// Komponen Khusus Stock
+// Row: Review Menu & Discount (checkable — bagian dari brief, 24h cooldown)
 // -------------------------------------------------------------------------
-function StockCard({ p }) {
-  const isZero = p.isZeroOrLess;
-  const cardStyle = isZero 
-    ? 'bg-[#FBEBEA] border border-[#FCA5A5]' 
-    : 'bg-[#FEF6F6] border border-[#FEE2E2]';
-  const textColor = isZero ? 'text-[#B8433B]' : 'text-[#DC2626]';
-  
-  const stockText = isZero ? 'Habis!' : `Sisa ${p.currentStock} ${p.unit}`.trim();
-
+function PriorityRow({ p, onToggle, onDismiss }) {
   return (
-      <div
-          className={`flex items-center justify-between gap-3 rounded-xl px-4 sm:px-5 py-4 ${cardStyle} ${SHADOW_CARD} transition-shadow`}
-      >
-        <div className="flex-1 min-w-0 pr-2">
-          <p className="text-[15px] font-bold text-[#18233D] truncate">
-            {p.title}
-          </p>
-          {p.recommendedQty != null && (
-            <p className="text-[13px] font-medium text-[#B8433B]/70 mt-0.5">
-              Rekomendasi restock: {p.recommendedQty} {p.unit}
-            </p>
-          )}
-        </div>
-        <p className={`text-[15px] font-extrabold ${textColor} whitespace-nowrap shrink-0`}>
-          {stockText}
-        </p>
-      </div>
-  )
-}
-
-// -------------------------------------------------------------------------
-// Komponen Khusus Expiry (Tidak dapat dicentang, hanya notifikasi & redirect)
-// -------------------------------------------------------------------------
-function ExpiryCard({ p, onGoto }) {
-  return (
-      <div className={`group flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 rounded-xl bg-white px-4 sm:px-5 py-4 ${SHADOW_CARD} ${SHADOW_CARD_HOVER} transition-shadow`}>
-        <div className="flex items-start gap-4 flex-1 min-w-0">
-          <span aria-hidden="true" className="w-5 h-5 mt-0.5 sm:mt-1 rounded-full shrink-0 flex items-center justify-center bg-[#FBEBEA] text-[#B8433B]">
-            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2 1 21h22L12 2zm0 6 6.5 11h-13L12 8zm-.9 3v4h1.8v-4h-1.8zm0 5.2v1.8h1.8v-1.8h-1.8z" />
-            </svg>
-          </span>
-          <div className="flex-1 min-w-0">
-            <p className="text-[15px] font-semibold text-[#18233D]">
-              {p.title}
-            </p>
-            <p className="text-sm text-[#5B6B82] mt-0.5 leading-relaxed">{p.summary}</p>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between sm:flex-col sm:items-end gap-1.5 shrink-0 pl-9 sm:pl-0">
-          <Badge label={p.badge.label} tone={p.badge.tone} />
-          <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault()
-                onGoto(p)
-              }}
-              className="flex items-center gap-1 text-sm font-medium text-[#28579C] hover:text-[#1E4278]"
-          >
-            {p.actionLabel}
-            <svg
-                className="w-3.5 h-3.5"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            >
-              <path d="m9 18 6-6-6-6" />
-            </svg>
-          </a>
-        </div>
-      </div>
-  )
-}
-
-// -------------------------------------------------------------------------
-// Komponen Item History (Bisa di-expand/collapse)
-// -------------------------------------------------------------------------
-function ActionHistoryItem({ a }) {
-  const [isOpen, setIsOpen] = useState(false);
-
-  return (
-    <div className="rounded-lg bg-[#F7F5F0] overflow-hidden transition-all">
+    <div className="flex items-center gap-4 px-5 py-4 hover:bg-[#F7F5F0]/70 transition-colors">
       <button
         type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left hover:bg-[#F0EDE6] transition-colors"
+        role="checkbox"
+        aria-checked={p.completed}
+        aria-label={`Tandai ${p.title} sebagai selesai`}
+        onClick={() => onToggle(p.id)}
+        className={`w-5 h-5 rounded-full border-2 shrink-0 transition-colors flex items-center justify-center ${
+          p.completed ? 'bg-[#2E7D53] border-[#2E7D53]' : 'border-[#CBD1DB] hover:border-[#28579C]'
+        }`}
       >
-        <p className="text-sm font-semibold text-[#18233D] truncate flex-1">
-          {a.title}
-        </p>
-        {a.discountLabel && (
-            <span className="shrink-0 text-xs font-semibold text-[#2E7D53] bg-[#EAF5EE] rounded-full px-2 py-0.5">
-              {a.discountLabel}
-            </span>
+        {p.completed && (
+          <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 6 9 17l-5-5" />
+          </svg>
         )}
-        {/* Ikon panah yang akan muter kalau diklik */}
-        <svg
-          className={`w-4 h-4 text-[#8B96A6] shrink-0 transition-transform duration-200 ${
-            isOpen ? 'rotate-180' : 'rotate-0'
-          }`}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          viewBox="0 0 24 24"
-        >
-          <path d="m6 9 6 6 6-6" />
-        </svg>
       </button>
-      
-      {/* Isi deskripsi yang muncul saat isOpen bernilai true */}
-      {isOpen && (
-        <div className="px-4 pb-3 pt-1 border-t border-[#E4E2DC]/60 mt-1">
-          <p className="text-sm text-[#5B6B82] leading-relaxed">{a.summary}</p>
-          <p className="text-[11px] font-medium text-[#8B96A6] mt-2">
-            Ditangani {fmtDateTime(a.actionTakenAt)}
-          </p>
-        </div>
-      )}
+      <div className="flex-1 min-w-0">
+        <p className={`text-sm font-semibold truncate ${p.completed ? 'text-[#8B96A6] line-through' : 'text-[#18233D]'}`}>
+          {p.title}
+        </p>
+        <p className={`${ROW_SUBTEXT} leading-relaxed`}>{p.summary}</p>
+        {p.impact && !p.completed && (
+          <p className="text-xs font-semibold text-[#2E7D53] mt-1">Estimasi dampak: {p.impact}</p>
+        )}
+      </div>
+      <div className="flex items-center gap-3 shrink-0">
+        <StatusBadge label={p.badge.label} tone={p.badge.tone} />
+        {!p.completed && (
+          <button
+            type="button"
+            onClick={() => onDismiss(p.id)}
+            className="text-xs font-medium text-[#8B96A6] hover:text-[#5B6B82] transition-colors"
+          >
+            Abaikan
+          </button>
+        )}
+      </div>
     </div>
-  );
+  )
 }
 
 // -------------------------------------------------------------------------
-// Container History Utama
+// Row: Stock — severity ditunjukkin lewat warna teks (sama kayak tabel
+// stok di IngredientsPage), bukan background card berwarna.
 // -------------------------------------------------------------------------
-function ActionHistory({ items }) {
-  if (!items.length) {
-    return (
-        <p className="text-sm text-[#8B96A6] px-1">
-          Belum ada aksi yang tercatat. Begitu kamu tandai rekomendasi sebagai selesai, bakal muncul di sini.
-        </p>
-    )
-  }
+function StockRow({ p }) {
+  const isZero = p.isZeroOrLess
+  const textColor = isZero ? 'text-[#B8433B]' : 'text-[#A2670C]'
+  const stockText = isZero ? 'Habis' : `Sisa ${p.currentStock} ${p.unit}`.trim()
+
   return (
-      <div className="space-y-2">
-        {items.map((a) => (
-            <ActionHistoryItem key={a.id} a={a} />
-        ))}
+    <div className="flex items-center gap-4 px-5 py-4 hover:bg-[#F7F5F0]/70 transition-colors">
+      <IconAlertTriangle className={`w-4 h-4 shrink-0 ${textColor}`} />
+      <div className="flex-1 min-w-0">
+        <p className={ROW_TITLE}>{p.title}</p>
+        {p.recommendedQty != null && (
+          <p className={ROW_SUBTEXT}>
+            Rekomendasi restock: {p.recommendedQty} {p.unit}
+          </p>
+        )}
       </div>
+      <p className={`text-sm font-bold tabular-nums whitespace-nowrap shrink-0 ${textColor}`}>{stockText}</p>
+    </div>
+  )
+}
+
+// -------------------------------------------------------------------------
+// Row: Expiry (gak bisa dicentang, cuma notifikasi & redirect)
+// -------------------------------------------------------------------------
+function ExpiryRow({ p, onGoto }) {
+  return (
+    <div className="flex items-center gap-4 px-5 py-4 hover:bg-[#F7F5F0]/70 transition-colors">
+      <IconClock className="w-4 h-4 text-[#A2670C] shrink-0" />
+      <div className="flex-1 min-w-0">
+        <p className={ROW_TITLE}>{p.title}</p>
+        <p className={ROW_SUBTEXT}>{p.summary}</p>
+      </div>
+      <div className="flex items-center gap-3 shrink-0">
+        <StatusBadge label={p.badge.label} tone={p.badge.tone} />
+        <a
+          href="#"
+          onClick={(e) => { e.preventDefault(); onGoto(p) }}
+          className="flex items-center gap-1 text-xs font-semibold text-[#28579C] hover:text-[#1E4278] transition-colors"
+        >
+          {p.actionLabel}
+          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m9 18 6-6-6-6" />
+          </svg>
+        </a>
+      </div>
+    </div>
+  )
+}
+
+// -------------------------------------------------------------------------
+// Row: History item — selalu kebuka penuh, gak perlu diklik buat baca.
+// -------------------------------------------------------------------------
+function ActionHistoryItem({ a }) {
+  return (
+    <div className="flex items-center gap-4 px-5 py-4">
+      <svg className="w-4 h-4 text-[#2E7D53] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20 6 9 17l-5-5" />
+      </svg>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-3">
+          <p className={`${ROW_TITLE} min-w-0`}>{a.title}</p>
+          {a.discountLabel && <StatusBadge label={a.discountLabel} tone="success" />}
+        </div>
+        <p className={`${ROW_SUBTEXT} leading-relaxed`}>{a.summary}</p>
+        <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-1">
+          <p className="text-xs text-[#8B96A6]">Ditangani {fmtDateTime(a.actionTakenAt)}</p>
+          {a.impact && <p className="text-xs font-semibold text-[#2E7D53]">Dampak: {a.impact}</p>}
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -420,12 +472,12 @@ function Countdown({ target }) {
 function Toast({ message }) {
   if (!message) return null
   return (
-      <div
-          className="fixed bottom-5 right-5 z-[70] max-w-xs rounded-lg bg-[#18233D] text-white px-4 py-3 shadow-lg text-sm font-medium"
-          style={{ animation: 'fadeIn .15s ease-out' }}
-      >
-        {message}
-      </div>
+    <div
+      className={`fixed bottom-5 right-5 z-[70] max-w-xs rounded-lg bg-[#18233D] text-white px-4 py-3 ${SHADOW_FLOAT} text-sm font-medium`}
+      style={{ animation: 'fadeIn .15s ease-out' }}
+    >
+      {message}
+    </div>
   )
 }
 
@@ -570,7 +622,7 @@ export default function Dashboard({ ownerName = 'Bos', onNavigate }) {
   }
 
   const allActions = brief?.actions || []
-  
+
   const priorities = useMemo(() => {
     if (status !== 'ready') return []
     return allActions.filter((a) => a.status === 'pending').map(mapBriefAction)
@@ -582,15 +634,19 @@ export default function Dashboard({ ownerName = 'Bos', onNavigate }) {
   const expiryActions = useMemo(() => expiringSoon.map(mapExpiryItem), [expiringSoon])
 
   const historyItems = useMemo(() => historyRaw.map(mapHistoryItem), [historyRaw])
+  // Dashboard cuma butuh "apa yang baru ditangani", bukan audit log lengkap
+  // — dibatesin biar gak numpuk di kartu yang paling gak prioritas di
+  // halaman ini (lihat HISTORY_LIMIT).
+  const visibleHistoryItems = historyItems.slice(0, HISTORY_LIMIT)
 
   const totalActions = allActions.length
   const handledCount = allActions.filter((a) => a.status === 'acted').length
   const openCount = priceActions.length + restockActions.length + expiryActions.length
 
   const trendPct =
-      salesToday.prevRevenue != null && salesToday.prevRevenue > 0
-          ? ((salesToday.revenue - salesToday.prevRevenue) / salesToday.prevRevenue) * 100
-          : null
+    salesToday.prevRevenue != null && salesToday.prevRevenue > 0
+      ? ((salesToday.revenue - salesToday.prevRevenue) / salesToday.prevRevenue) * 100
+      : null
 
   async function updateActionStatus(id, newStatus, toastMsg) {
     try {
@@ -615,250 +671,240 @@ export default function Dashboard({ ownerName = 'Bos', onNavigate }) {
     if (onNavigate && p.gotoPage) onNavigate(p.gotoPage, p.refId)
   }
 
+  const regenerateLabel = regenerating
+    ? 'Membuat…'
+    : !canGenerateNow
+      ? <Countdown target={nextGenerateAt} />
+      : 'Generate Ulang'
+
+  // ownerName bisa '' (bukan cuma undefined) kalau full_name belum diisi
+  // sama sekali di akun — default param aja gak nolong buat kasus itu,
+  // jadi divalidasi manual biar gak nyisain "Selamat pagi," nge-gantung
+  // tanpa nama.
+  const firstName = String(ownerName || '').trim().split(' ')[0]
+  const greeting = firstName ? `Selamat pagi, ${firstName}` : 'Selamat pagi!'
+
   return (
-      <div
-          className="bg-[#F7F5F0] text-[#18233D] antialiased min-h-full"
-          style={{
-            fontFamily:
-                "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-          }}
-      >
-        <style>{`@keyframes fadeIn { from { opacity:0; transform: translateY(2px);} to { opacity:1; transform:none;} }`}</style>
+    <div className="max-w-5xl mx-auto">
+      <style>{`@keyframes fadeIn { from { opacity:0; transform: translateY(2px);} to { opacity:1; transform:none;} }`}</style>
 
-        {/* ============ HERO ============ */}
-        <div className="relative overflow-hidden bg-[linear-gradient(155deg,#243559_0%,#131C33_100%)] px-4 sm:px-6 md:px-10 pt-9 pb-16">
-          <div className="relative max-w-[960px] mx-auto">
-            <p className="text-sm text-white/50 font-medium mb-1.5">{fmtDate(new Date())}</p>
-            <h1 className="text-[22px] sm:text-[27px] font-extrabold tracking-tight text-white">
-              Selamat pagi, {String(ownerName).split(' ')[0]}
-            </h1>
-            <p className="text-[15px] text-white/70 mt-3.5 leading-relaxed max-w-[560px]">
-              {status === 'loading' ? (
-                  'Memuat brief hari ini…'
-              ) : openCount === 0 ? (
-                  <>
-                    Semua udah beres — <span className="text-white font-semibold">tidak ada prioritas yang perlu ditangani</span> sekarang.
-                  </>
-              ) : (
-                  <>
-                <span className="text-white font-semibold">
-                  {openCount} item
-                </span>{' '}
-                    butuh perhatian kamu hari ini.
-                  </>
-              )}
-            </p>
-          </div>
-        </div>
-
-        <div className="max-w-[960px] mx-auto px-4 sm:px-6 md:px-10 pb-10">
-          {/* ============ STAT "TICKET" CARD ============ */}
-          <div className="relative -mt-10 mb-9 rounded-2xl bg-white shadow-[0_14px_32px_-10px_rgba(20,29,52,0.28),0_2px_8px_rgba(20,29,52,0.08)] ring-1 ring-white/60 overflow-hidden">
-            <div className="flex flex-col divide-y divide-[#E4E2DC] sm:flex-row sm:divide-y-0 sm:divide-x">
-              <div className="flex-1 px-6 py-4">
-                <p className="text-xs text-[#8B96A6] mb-1">Penjualan Hari Ini</p>
-                <div className="flex items-end justify-between gap-3">
-                  <div className="flex items-baseline gap-2">
-                    <p className="text-[22px] font-bold text-[#18233D]">{rupiah(salesToday.revenue)}</p>
-                    <Trend pct={trendPct} tooltip="Dibanding periode yang sama kemarin" />
-                  </div>
-                </div>
-              </div>
-              <div className="flex-1 px-6 py-4">
-                <p className="text-xs text-[#8B96A6] mb-1">Item Terjual Hari Ini</p>
-                <p className="text-[22px] font-bold text-[#18233D]">{salesToday.volume}</p>
-                <p className="text-[11px] text-[#8B96A6] mt-0.5">{salesToday.orders} transaksi tercatat</p>
-              </div>
-              <div className="flex-1 px-6 py-4">
-                <p className="text-xs text-[#8B96A6] mb-1">Prioritas</p>
-                <p className="text-[22px] font-bold text-[#18233D]">
-                  {status === 'loading' ? (
-                      '—'
-                  ) : totalActions === 0 ? (
-                      <span className="text-sm font-semibold text-[#2E7D53]">Semua Beres</span>
-                  ) : (
-                      <>
-                        {handledCount}
-                        <span className="text-sm font-medium text-[#8B96A6]">/{totalActions}</span>{' '}
-                        <span
-                            className={`text-sm font-semibold ${
-                                openCount === 0 ? 'text-[#2E7D53]' : 'text-[#A2670C]'
-                            }`}
-                        >
-                      selesai
-                    </span>
-                      </>
-                  )}
-                </p>
-              </div>
-            </div>
-
-            <div className="relative" aria-hidden="true">
-              <div className="border-t-2 border-dashed border-[#A2670C]/35" />
-              <span className="absolute -left-3 -top-3 w-6 h-6 rounded-full bg-[#F7F5F0]" />
-              <span className="absolute -right-3 -top-3 w-6 h-6 rounded-full bg-[#F7F5F0]" />
-            </div>
-
-            <div className="flex flex-col items-start gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 bg-[#F7F5F0]/60 px-4 sm:px-6 py-3">
-              <p className="text-sm text-[#5B6B82]">
-                <span className="text-[#18233D] font-semibold">Catat penjualan hari ini begitu terjadi.</span>{' '}
-                Biar data revenue dan pemakaian stok tetap akurat.
-              </p>
-              <button
-                  type="button"
-                  onClick={() => (onNavigate ? onNavigate('sales') : showToast('Sambungkan ke halaman Record Sales di sini.'))}
-                  className="shrink-0 text-sm font-semibold text-white bg-[#28579C] hover:bg-[#1E4278] transition-colors rounded-full px-4 py-2"
-              >
-                Catat penjualan
-              </button>
-            </div>
-          </div>
-
-          {/* ============ MAIN LAYOUT (2 COLUMNS) ============ */}
-          <div className="flex items-baseline justify-between mb-4">
-            <h2 className="text-[13px] font-bold text-[#18233D] uppercase tracking-wide">
-              Prioritas Hari Ini
-            </h2>
-            <button
-                type="button"
-                onClick={generateBrief}
-                disabled={regenerating || !canGenerateNow}
-                title={!canGenerateNow && nextGenerateAt ? `Bisa lagi setelah ${fmtDateTime(nextGenerateAt)}` : undefined}
-                className="text-xs font-semibold text-[#28579C] hover:text-[#1E4278] disabled:opacity-50"
-            >
-              {regenerating
-                  ? 'Membuat…'
-                  : !canGenerateNow
-                      ? <Countdown target={nextGenerateAt} />
-                      : 'Generate Ulang'}
-            </button>
-          </div>
-
-          {status === 'loading' && (
-              <div className="space-y-2.5" aria-hidden="true">
-                <SkeletonPriority />
-                <SkeletonPriority wide />
-              </div>
+      {/* ============ HERO — dark navy, tanggal+greeting+subtitle digabung
+          jadi satu, gak dipecah-pecah. ============ */}
+      <div className="relative overflow-hidden rounded-2xl bg-[linear-gradient(155deg,#243559_0%,#131C33_100%)] px-6 sm:px-8 pt-7 pb-14">
+        <p className="text-sm text-white/50 font-medium mb-1.5">{fmtDate(new Date())}</p>
+        <h1 className="text-[24px] sm:text-[27px] font-extrabold tracking-tight text-white">
+          {greeting}
+        </h1>
+        <p className="text-sm text-white/70 mt-2.5 max-w-xl leading-relaxed">
+          {status === 'loading' ? (
+            'Memuat brief hari ini…'
+          ) : openCount === 0 ? (
+            <>Semua udah beres — <span className="text-white font-semibold">gak ada prioritas yang perlu ditangani</span> sekarang.</>
+          ) : (
+            <><span className="text-white font-semibold">{openCount} item</span> butuh perhatian kamu hari ini.</>
           )}
-
-          {status === 'error' && (
-              <div className={`rounded-xl bg-white px-5 py-6 text-center ${SHADOW_CARD}`}>
-                <p className="text-sm font-semibold text-[#18233D]">Gagal memuat data hari ini.</p>
-                <p className="text-sm text-[#5B6B82] mt-1">Cek koneksi kamu dan coba lagi.</p>
-                <button
-                    type="button"
-                    onClick={load}
-                    className="mt-3 text-sm font-semibold text-white bg-[#28579C] hover:bg-[#1E4278] transition-colors rounded-full px-4 py-2"
-                >
-                  Coba Lagi
-                </button>
-              </div>
-          )}
-
-          {status === 'ready' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8 items-start">
-
-                {/* KOLOM KIRI: Review Menu & Discount (brief, 24h cooldown) + History */}
-                <div className="space-y-8">
-                  <section aria-labelledby="price-heading">
-                    <p id="price-heading" className="text-xs font-semibold text-[#8B96A6] uppercase tracking-wide mb-3">
-                      Review Harga &amp; Diskon
-                    </p>
-                    {priceActions.length > 0 ? (
-                        <div className="space-y-2.5">
-                          {priceActions.map((p) => (
-                              <ReviewCard key={p.id} p={p} onToggle={togglePriority} onDismiss={dismissPriority} />
-                          ))}
-                        </div>
-                    ) : (
-                        <div className={`rounded-xl bg-white px-5 py-6 text-center ${SHADOW_CARD}`}>
-                          <p className="text-sm font-semibold text-[#18233D]">
-                            {brief ? 'Tidak ada yang urgent hari ini.' : 'Brief hari ini belum digenerate.'}
-                          </p>
-                          <p className="text-sm text-[#5B6B82] mt-1">
-                            {brief
-                                ? 'Stokita bakal nampilin aksi harga/diskon baru di sini begitu ada yang butuh perhatian kamu.'
-                                : 'Generate buat liat rekomendasi harga dari AI hari ini.'}
-                          </p>
-                          {!brief && (
-                              <button
-                                  type="button"
-                                  onClick={generateBrief}
-                                  disabled={regenerating || !canGenerateNow}
-                                  className="mt-3 text-sm font-semibold text-white bg-[#28579C] hover:bg-[#1E4278] transition-colors rounded-full px-4 py-2 disabled:opacity-50"
-                              >
-                                {regenerating
-                                    ? 'Membuat…'
-                                    : !canGenerateNow
-                                        ? <Countdown target={nextGenerateAt} />
-                                        : 'Generate brief hari ini'}
-                              </button>
-                          )}
-                        </div>
-                    )}
-                  </section>
-
-                  <section aria-labelledby="action-history-heading">
-                    <p id="action-history-heading" className="text-xs font-semibold text-[#8B96A6] uppercase tracking-wide mb-3">
-                      Riwayat Aksi
-                    </p>
-                    <div className={`rounded-xl bg-white ${SHADOW_CARD}`}>
-                      <div className="p-4">
-                        <ActionHistory items={historyItems} />
-                      </div>
-                    </div>
-                  </section>
-                </div>
-
-                {/* KOLOM KANAN: Stock (Needs Restock) & Expiry — LIVE, bukan bagian brief, tidak kena cooldown */}
-                <div className="space-y-8">
-                  <section aria-labelledby="stock-heading">
-                    <div className="flex items-center justify-between mb-3">
-                      <p id="stock-heading" className="text-xs font-semibold text-[#8B96A6] uppercase tracking-wide">
-                        Stok — Perlu Restock
-                      </p>
-                      <button
-                          type="button"
-                          onClick={() => onNavigate && onNavigate('ingredients')}
-                          className="text-xs font-semibold text-[#28579C] hover:text-[#1E4278] underline decoration-[#28579C]/30 underline-offset-2"
-                      >
-                        Ke Restock →
-                      </button>
-                    </div>
-
-                    {restockActions.length > 0 ? (
-                        <div className="space-y-2.5">
-                          {restockActions.map((p) => (
-                              <StockCard key={p.id} p={p} />
-                          ))}
-                        </div>
-                    ) : (
-                        <p className="text-sm text-[#8B96A6]">Stok kamu aman.</p>
-                    )}
-                  </section>
-
-                  <section aria-labelledby="expiry-heading">
-                    <p id="expiry-heading" className="text-xs font-semibold text-[#8B96A6] uppercase tracking-wide mb-3">
-                      Stok — Peringatan Kadaluwarsa
-                    </p>
-                    {expiryActions.length > 0 ? (
-                        <div className="space-y-2.5">
-                          {expiryActions.map((p) => (
-                              <ExpiryCard key={p.id} p={p} onGoto={goToAction} />
-                          ))}
-                        </div>
-                    ) : (
-                        <p className="text-sm text-[#8B96A6]">Tidak ada yang mau kadaluwarsa.</p>
-                    )}
-                  </section>
-                </div>
-                
-              </div>
-          )}
-        </div>
-
-
-        <Toast message={toast} />
+        </p>
       </div>
+
+      {/* ============ TICKET CARD — ngambang di atas hero (negative margin),
+          isi stat Sales/Items/Prioritas + CTA catat penjualan di footer-nya,
+          dipisahin garis putus-putus kayak sobekan tiket. ============ */}
+      <div className={`relative -mt-8 mb-8 rounded-2xl bg-white ${SHADOW_FLOAT} ring-1 ring-white/60 overflow-hidden`}>
+        <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 divide-[#E4E2DC] sm:divide-x">
+          <StatCell
+            icon={<IconWallet className="w-4 h-4" />}
+            label="Penjualan Hari Ini"
+            value={rupiah(salesToday.revenue)}
+            trend={<Trend pct={trendPct} tooltip="Dibanding periode yang sama kemarin" />}
+          />
+          <StatCell
+            icon={<IconBag className="w-4 h-4" />}
+            label="Item Terjual Hari Ini"
+            value={salesToday.volume}
+            sub={`${salesToday.orders} transaksi tercatat`}
+          />
+          <StatCell
+            icon={<IconChecklist className="w-4 h-4" />}
+            label="Prioritas"
+            tone={status !== 'loading' && totalActions > 0 && openCount > 0 ? 'warning' : 'neutral'}
+            value={
+              status === 'loading' ? (
+                '—'
+              ) : totalActions === 0 ? (
+                <span className="text-sm font-semibold text-[#2E7D53]">Semua Beres</span>
+              ) : (
+                <>
+                  {handledCount}
+                  <span className="text-sm font-medium text-[#8B96A6]">/{totalActions}</span>{' '}
+                  <span className={`text-sm font-semibold ${openCount === 0 ? 'text-[#2E7D53]' : 'text-[#A2670C]'}`}>
+                    selesai
+                  </span>
+                </>
+              )
+            }
+          />
+        </div>
+
+        <div className="relative" aria-hidden="true">
+          <div className="border-t-2 border-dashed border-[#CBD1DB]" />
+          <span className="absolute -left-3 -top-3 w-6 h-6 rounded-full bg-[#F7F5F0]" />
+          <span className="absolute -right-3 -top-3 w-6 h-6 rounded-full bg-[#F7F5F0]" />
+        </div>
+
+        <div className="flex flex-col items-start gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 bg-[#F7F5F0]/60 px-4 sm:px-6 py-3">
+          <p className="text-sm text-[#5B6B82]">
+            <span className="text-[#18233D] font-semibold">Catat penjualan hari ini begitu terjadi.</span>{' '}
+            Biar data revenue dan pemakaian stok tetap akurat.
+          </p>
+          <button
+            type="button"
+            onClick={() => (onNavigate ? onNavigate('sales') : showToast('Sambungkan ke halaman Record Sales di sini.'))}
+            className={`shrink-0 ${BTN_PRIMARY}`}
+          >
+            <span className="inline-flex items-center gap-1.5"><IconPlus className="w-4 h-4" /> Catat Penjualan</span>
+          </button>
+        </div>
+      </div>
+
+      {status === 'error' ? (
+        <div className={`rounded-2xl bg-white px-5 py-8 text-center ${SHADOW_CARD}`}>
+          <p className="text-sm font-semibold text-[#18233D]">Gagal memuat data hari ini.</p>
+          <p className="text-sm text-[#5B6B82] mt-1">Cek koneksi kamu dan coba lagi.</p>
+          <button type="button" onClick={load} className={`${BTN_PRIMARY} mt-4`}>
+            Coba Lagi
+          </button>
+        </div>
+      ) : (
+        <>
+          {/* ============ STOK & PERLU RESTOCK — prioritas #1 owner, jadi
+              section pertama & paling menonjol di halaman (full-width,
+              ikon+count di header), bukan diselipin di kolom kanan. ============ */}
+          <div className="mb-8">
+            <CardSection
+              title="Stok Perlu Restock"
+              count={restockActions.length}
+              subtitle="Kehabisan stok lebih mahal daripada rugi kecil — restock duluan."
+              loading={status === 'loading'}
+              action={
+                <button
+                  type="button"
+                  onClick={() => onNavigate && onNavigate('ingredients')}
+                  className={LINK_BRAND}
+                >
+                  Ke halaman Stok →
+                </button>
+              }
+              empty={status === 'loading' ? null : restockActions.length === 0 ? (
+                <EmptyState
+                  icon={<IconPackage className="w-5 h-5 text-[#8B96A6]" />}
+                  title="Stok kamu aman"
+                  body="Gak ada bahan yang perlu direstock sekarang. Kita bakal langsung kasih tau begitu ada yang mulai menipis."
+                />
+              ) : null}
+            >
+              {restockActions.map((p) => (
+                <StockRow key={p.id} p={p} />
+              ))}
+            </CardSection>
+          </div>
+
+          {/* ============ SISANYA — 1 kolom, ditumpuk atas-bawah ============ */}
+          <div className="space-y-6">
+            <CardSection
+              title="Review Harga & Diskon"
+              count={priceActions.length}
+              subtitle="Rekomendasi AI berdasarkan margin menu & bahan yang mau kadaluwarsa."
+              loading={status === 'loading'}
+              action={
+                <button
+                  type="button"
+                  onClick={generateBrief}
+                  disabled={regenerating || !canGenerateNow}
+                  title={!canGenerateNow && nextGenerateAt ? `Bisa lagi setelah ${fmtDateTime(nextGenerateAt)}` : undefined}
+                  className={LINK_BRAND}
+                >
+                  {regenerateLabel}
+                </button>
+              }
+              empty={
+                status === 'loading' || priceActions.length > 0 ? null : (
+                  <EmptyState
+                    icon={<IconTag className="w-5 h-5 text-[#8B96A6]" />}
+                    title={brief ? 'Gak ada yang urgent hari ini' : 'Brief hari ini belum digenerate'}
+                    body={
+                      brief
+                        ? 'Stokita bakal nampilin aksi harga/diskon baru di sini begitu ada yang butuh perhatian kamu.'
+                        : 'Generate buat liat rekomendasi harga dari AI, berdasarkan margin menu & bahan yang mau kadaluwarsa.'
+                    }
+                    action={
+                      !brief && (
+                        <button
+                          type="button"
+                          onClick={generateBrief}
+                          disabled={regenerating || !canGenerateNow}
+                          className={BTN_PRIMARY}
+                        >
+                          {regenerateLabel === 'Generate Ulang' ? 'Generate brief hari ini' : regenerateLabel}
+                        </button>
+                      )
+                    }
+                  />
+                )
+              }
+            >
+              {priceActions.map((p) => (
+                <PriorityRow key={p.id} p={p} onToggle={togglePriority} onDismiss={dismissPriority} />
+              ))}
+            </CardSection>
+
+            {/* Expiry — LIVE, bukan bagian brief, gak kena cooldown. Tone-nya
+                sengaja lebih adem dari Perlu Restock (lihat mapExpiryItem). */}
+            <CardSection
+              title="Peringatan Kadaluwarsa Stok"
+              count={expiryActions.length}
+              subtitle="Bahan yang bakal kadaluwarsa dalam 7 hari ke depan."
+              loading={status === 'loading'}
+              empty={status === 'loading' ? null : expiryActions.length === 0 ? (
+                <EmptyState
+                  icon={<IconClock className="w-5 h-5 text-[#8B96A6]" />}
+                  title="Gak ada yang mau kadaluwarsa"
+                  body="Semua bahan yang restock-nya punya tanggal kadaluwarsa masih aman buat 7 hari ke depan."
+                />
+              ) : null}
+            >
+              {expiryActions.map((p) => (
+                <ExpiryRow key={p.id} p={p} onGoto={goToAction} />
+              ))}
+            </CardSection>
+
+            <CardSection
+              title="Riwayat Aksi"
+              count={historyItems.length}
+              subtitle={
+                historyItems.length > HISTORY_LIMIT
+                  ? `Menampilkan ${HISTORY_LIMIT} paling baru dari ${historyItems.length} total`
+                  : 'Rekomendasi yang udah kamu tandai selesai atau diabaikan.'
+              }
+              loading={status === 'loading'}
+              empty={
+                status === 'loading' || visibleHistoryItems.length > 0 ? null : (
+                  <EmptyState
+                    icon={<IconHistory className="w-5 h-5 text-[#8B96A6]" />}
+                    title="Belum ada aksi yang tercatat"
+                    body="Begitu kamu tandai rekomendasi harga/diskon sebagai selesai, riwayatnya bakal muncul di sini."
+                  />
+                )
+              }
+            >
+              {visibleHistoryItems.map((a) => (
+                <ActionHistoryItem key={a.id} a={a} />
+              ))}
+            </CardSection>
+          </div>
+        </>
+      )}
+
+      <Toast message={toast} />
+    </div>
   )
 }
