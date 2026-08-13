@@ -111,6 +111,25 @@ class ChatMessageView(APIView):
                     "confirmation_required": True,
                 },
             })
+        # =========================
+        # CASE 3: UNSUPPORTED
+        # =========================
+        if result.get("type") == "unsupported":
+            return Response({
+                "type": "unsupported",
+                "capability": result.get(
+                    "capability",
+                    "unknown",
+                ),
+                "answer": result.get(
+                    "answer",
+                    "Fitur tersebut belum tersedia melalui chat.",
+                ),
+                "suggested_actions": result.get(
+                    "suggested_actions",
+                    [],
+                ),
+            })
 
         return Response(
             {"error": "Response AI tidak dikenali"},
