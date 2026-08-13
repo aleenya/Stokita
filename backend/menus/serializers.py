@@ -27,8 +27,11 @@ class MenuSerializer(serializers.ModelSerializer):
         model = Menu
         fields = ["id", "name", "sell_price", "target_margin", "is_active",
           "recipe_lines", "unit_cost", "created_at",
-          "active_discount_pct", "active_discount_ingredient", "active_discount_expiry_date"]  # tambahan
+          "active_discount_pct"]  # tambahan
         read_only_fields = ["created_at"]
+
+        def get_active_discount_pct(self, obj):
+            return obj.get_effective_discount_pct()
  
     def get_unit_cost(self, obj):
         return obj.unit_cost()
