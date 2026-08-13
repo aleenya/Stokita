@@ -186,15 +186,7 @@ def compute_menu_breakdown(business, period, date_from=None, date_to=None, menu_
         qty = int(row["qty"] or 0) if row else 0
         revenue = float(row["revenue"] or 0) if row else 0.0
         cost = float(row["cost"] or 0) if row else 0.0
-        if revenue > 0:
-            margin_pct = round((revenue - cost) / revenue * 100, 1)
-        else:
-            # No sales this period — fall back to the recipe-based margin
-            # (same idea as compute_menu_profit_states' "no_data" case)
-            # instead of implying a 0-revenue menu is somehow 0% margin.
-            recipe_cost = float(menu.unit_cost())
-            sell_price = float(menu.sell_price)
-            margin_pct = round((sell_price - recipe_cost) / sell_price * 100, 1) if sell_price else 0.0
+        margin_pct = _margin_pct(menu, revenue, cost)
         results.append({
             "menu_id": str(menu.id),
             "name": menu.name,
@@ -226,7 +218,7 @@ def compute_menu_compare(business, period, menu_a_id, menu_b_id, date_from=None,
             continue
         current = _aggregate_items(_sale_items_qs(business, start, end, mid))
         previous = _aggregate_items(_sale_items_qs(business, prev_start, prev_end, mid))
-        margin_pct = round(current["profit"] / current["revenue"] * 100, 1) if current["revenue"] else 0.0
+        margin_pct = _margin_pct(menu, current["revenue"], current["cost"])
         out[key] = {
             "menu_id": str(menu.id), "name": menu.name,
             "current": current, "previous": previous, "margin_pct": margin_pct,
@@ -238,6 +230,23 @@ def compute_menu_compare(business, period, menu_a_id, menu_b_id, date_from=None,
         "a": out["a"],
         "b": out["b"],
     }
+
+
+def _margin_pct(menu, revenue, cost):
+    """Margin for a menu over a period. When there were no sales in the
+    period, revenue/cost are both 0, which would misleadingly read as a
+    literal "0% margin" instead of "no data" — fall back to an estimate
+    from the menu's current recipe cost, same as classify_margin_state's
+    "no_data" reasoning. Shared by compute_menu_breakdown (Menu
+    Performance table) and compute_menu_compare (Compare Menus tab) so
+    the SAME menu/period never shows two different margins depending on
+    which view you're looking at — they used to disagree (breakdown used
+    the recipe estimate, compare hardcoded 0%)."""
+    if revenue > 0:
+        return round((revenue - cost) / revenue * 100, 1)
+    recipe_cost = float(menu.unit_cost())
+    sell_price = float(menu.sell_price)
+    return round((sell_price - recipe_cost) / sell_price * 100, 1) if sell_price else 0.0
 
 
 class InsufficientStockError(Exception):
