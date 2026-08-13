@@ -4,7 +4,10 @@ from rest_framework.response import Response
 from menus.models import Menu
 from .models import Sale
 from .serializers import RecordSaleSerializer, SaleSerializer
-from .services import record_sale, InsufficientStockError, compute_menu_profit_states, delete_sale
+from .services import (
+    record_sale, InsufficientStockError, compute_menu_profit_states, delete_sale,
+    compute_performance_overview, compute_menu_breakdown, compute_menu_compare,
+)
 from rest_framework.permissions import IsAuthenticated
 from accounts.permissions import IsOwner
 from accounts.permissions import feature_required
@@ -115,7 +118,8 @@ class SaleViewSet(viewsets.ModelViewSet):
  
  
 class ProfitAnalyticsViewSet(viewsets.ViewSet):
-    """F3: per-menu profit and health classification."""
+    """F3: per-menu profit and health classification, plus the Performance
+    page's period-based overview/breakdown/compare views below."""
     permission_classes = [IsAuthenticated, feature_required("profit_analytics")]
 
     def list(self, request):
@@ -124,5 +128,37 @@ class ProfitAnalyticsViewSet(viewsets.ViewSet):
         date_to = request.query_params.get("to")
         results = compute_menu_profit_states(business, date_from, date_to)
         return Response({"menus": results})
+
+    @action(detail=False, methods=["get"])
+    def overview(self, request):
+        business = request.user.business
+        period = request.query_params.get("period", "7d")
+        date_from = request.query_params.get("from")
+        date_to = request.query_params.get("to")
+        menu_id = request.query_params.get("menu") or None
+        return Response(compute_performance_overview(business, period, date_from, date_to, menu_id))
+
+    @action(detail=False, methods=["get"], url_path="menus")
+    def menu_breakdown(self, request):
+        business = request.user.business
+        period = request.query_params.get("period", "7d")
+        date_from = request.query_params.get("from")
+        date_to = request.query_params.get("to")
+        menu_id = request.query_params.get("menu") or None
+        return Response(compute_menu_breakdown(business, period, date_from, date_to, menu_id))
+
+    @action(detail=False, methods=["get"])
+    def compare(self, request):
+        business = request.user.business
+        period = request.query_params.get("period", "30d")
+        date_from = request.query_params.get("from")
+        date_to = request.query_params.get("to")
+        menu_a = request.query_params.get("menu_a")
+        menu_b = request.query_params.get("menu_b")
+        if not menu_a or not menu_b:
+            return Response(
+                {"error": "menu_a dan menu_b wajib diisi."}, status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response(compute_menu_compare(business, period, menu_a, menu_b, date_from, date_to))
 
    
