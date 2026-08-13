@@ -25,7 +25,12 @@ class SaleViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
     def get_queryset(self):
-        qs = Sale.objects.filter(business=self.request.user.business).prefetch_related("items")
+        # No ordering = Postgres makes no guarantee about row order, so
+        # "Recent Sales" could render in a different order on every
+        # request/page load instead of consistently newest-first.
+        qs = Sale.objects.filter(
+            business=self.request.user.business
+        ).prefetch_related("items").order_by("-sale_date", "-created_at")
         date = self.request.query_params.get("date")
         if date:
             qs = qs.filter(sale_date=date)
@@ -68,8 +73,22 @@ class SaleViewSet(viewsets.ModelViewSet):
             file = request.FILES.get("file")
             if not file:
                 return Response({"error": "file CSV wajib diisi"}, status=status.HTTP_400_BAD_REQUEST)
-    
-            decoded = file.read().decode("utf-8-sig")
+
+            raw = file.read()
+            try:
+                decoded = raw.decode("utf-8-sig")
+            except UnicodeDecodeError:
+                # CSV yang diexport dari Excel di Windows sering kepake
+                # cp1252 (mis. tanda kutip pintar/karakter beraksen), bukan
+                # UTF-8 — sebelumnya ini nge-raise UnicodeDecodeError yang
+                # gak ketangkep sama sekali (500), bukannya pesan yang jelas.
+                try:
+                    decoded = raw.decode("cp1252")
+                except UnicodeDecodeError:
+                    return Response(
+                        {"error": "Gagal baca file CSV — pastiin file disimpan dengan encoding UTF-8."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
             reader = csv.DictReader(io.StringIO(decoded))
             rows = list(reader)
             if not rows:
@@ -92,7 +111,15 @@ class SaleViewSet(viewsets.ModelViewSet):
     
             # --- Tahap 2: user udah confirm/pilih kolom, proses penuh ---
             business = request.user.business
-            menu_choices = list(Menu.objects.filter(business=business).values_list("id", "name"))
+            # is_active=True: record_sale() only ever resolves active menus,
+            # so matching CSV rows against inactive ones used to "succeed"
+            # here with high confidence, then fail the whole batch at
+            # submit time with a confusing "Menu gak ditemukan" — and the
+            # matched menu wouldn't even appear in the frontend's (active-
+            # only) dropdown, so the row looked blank despite being matched.
+            menu_choices = list(
+                Menu.objects.filter(business=business, is_active=True).values_list("id", "name")
+            )
     
             results = []
             for row in rows:

@@ -70,16 +70,33 @@ function formatRupiah(n) {
 }
 
 function extractError(err) {
-  const data = err.response?.data
+  return flattenErrorData(err.response?.data)
+}
+
+function flattenErrorData(data) {
+  // DRF nested serializers (RecordSaleSerializer.items is a list of
+  // SaleItemInputSerializer) return errors as a list of per-item dicts,
+  // e.g. {"items": [{}, {"quantity": ["A valid integer is required."]}]}.
+  // The old version only unwrapped one level (`val[0]`), so a nested-item
+  // error surfaced as a raw object — setError(objectValue) then crashed
+  // the page when React tried to render it as a child ("Objects are not
+  // valid as a React child"). This walks down until it finds an actual
+  // string message.
   if (!data) return ''
   if (typeof data === 'string') return data
-  if (data.error) return data.error
-  const firstKey = Object.keys(data)[0]
-  if (firstKey) {
-    const val = data[firstKey]
-    return Array.isArray(val) ? val[0] : String(val)
+  if (Array.isArray(data)) {
+    for (const item of data) {
+      const msg = flattenErrorData(item)
+      if (msg) return msg
+    }
+    return ''
   }
-  return ''
+  if (typeof data === 'object') {
+    if (typeof data.error === 'string') return data.error
+    const firstKey = Object.keys(data)[0]
+    if (firstKey) return flattenErrorData(data[firstKey])
+  }
+  return String(data)
 }
 
 function confidenceTone(score) {
@@ -224,7 +241,7 @@ function RecordSaleModal({ menus, onClose, onSaved }) {
       await api.post('/sales/', { sale_date: saleDate, items })
       onSaved()
     } catch (err) {
-      setError(err.response?.data?.error || 'Gagal record sale. Cek stock ingredient cukup & recipe menu udah diisi.')
+      setError(extractError(err) || 'Gagal record sale. Cek stock ingredient cukup & recipe menu udah diisi.')
     } finally {
       setSaving(false)
     }
@@ -366,14 +383,20 @@ function CsvImportSection({ menus, onImported }) {
   }
 
   async function handleConfirmSales() {
-    const validRows = rows.filter((r) => r.menu_id && Number(r.quantity) > 0)
+    // Sale quantity is "servings sold", always a whole number — the
+    // input allows typing a decimal even with step=1 (step only affects
+    // the spinner buttons), and the backend's IntegerField rejects
+    // anything but a whole number, failing the ENTIRE batch with a
+    // generic error instead of pointing at the one bad row. Round here so
+    // a stray "2.5" can't silently sink the whole import.
+    const validRows = rows.filter((r) => r.menu_id && Math.round(Number(r.quantity)) > 0)
     if (validRows.length === 0) {
       setError('Gak ada baris valid buat direcord — pilih menu & pastiin qty > 0 di minimal 1 baris.')
       return
     }
     const aggregated = {}
     validRows.forEach((r) => {
-      aggregated[r.menu_id] = (aggregated[r.menu_id] || 0) + Number(r.quantity)
+      aggregated[r.menu_id] = (aggregated[r.menu_id] || 0) + Math.round(Number(r.quantity))
     })
     const items = Object.entries(aggregated).map(([menu_id, quantity]) => ({ menu_id, quantity }))
 
@@ -384,7 +407,7 @@ function CsvImportSection({ menus, onImported }) {
       reset()
       onImported()
     } catch (err) {
-      setError(err.response?.data?.error || 'Gagal record sales dari CSV.')
+      setError(extractError(err) || 'Gagal record sales dari CSV.')
     } finally {
       setSubmitting(false)
     }
@@ -519,7 +542,7 @@ function CsvImportSection({ menus, onImported }) {
                     <td className="px-3 py-2.5 text-[#18233D]">{row.csv_name}</td>
                     <td className="px-3 py-2.5">
                       <input
-                        type="number" step="0.001"
+                        type="number" step="1" min="1"
                         value={row.quantity}
                         onChange={(e) => updateRow(i, { quantity: e.target.value })}
                         className={`${INPUT} w-20 text-right`}

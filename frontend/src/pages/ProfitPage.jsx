@@ -41,16 +41,28 @@ function formatNumber(n) {
   return Math.round(Number(n) || 0).toLocaleString('id-ID')
 }
 function extractError(err) {
-  const data = err.response?.data
+  return flattenErrorData(err.response?.data)
+}
+function flattenErrorData(data) {
+  // Walks down nested DRF error shapes ({"field": [...]} , lists of
+  // dicts, etc.) until it finds an actual string — a shallow one-level
+  // unwrap here previously could hand setError() a raw object, which
+  // React then throws trying to render as a child.
   if (!data) return ''
   if (typeof data === 'string') return data
-  if (data.error) return data.error
-  const firstKey = Object.keys(data)[0]
-  if (firstKey) {
-    const val = data[firstKey]
-    return Array.isArray(val) ? val[0] : String(val)
+  if (Array.isArray(data)) {
+    for (const item of data) {
+      const msg = flattenErrorData(item)
+      if (msg) return msg
+    }
+    return ''
   }
-  return ''
+  if (typeof data === 'object') {
+    if (typeof data.error === 'string') return data.error
+    const firstKey = Object.keys(data)[0]
+    if (firstKey) return flattenErrorData(data[firstKey])
+  }
+  return String(data)
 }
 function pctChange(curr, prev) {
   if (!prev) return null
@@ -109,7 +121,11 @@ function EmptyState({ title, body }) {
    ========================================================================= */
 function TrendChart({ series, metric }) {
   const values = series.map((d) => d[metric === 'sales' ? 'revenue' : metric === 'profit' ? 'profit' : 'volume'])
-  const max = Math.max(1, ...values)
+  // Scaled by magnitude (abs), not raw value — a series of all-negative
+  // days (e.g. profit) would otherwise make `max` collapse to the 1
+  // floor, blowing bar heights up past 100000% since abs(value)/max is
+  // used below to size loss bars too.
+  const max = Math.max(1, ...values.map((v) => Math.abs(v)))
   const showTicks = series.length <= 31
   const minWidth = Math.max(360, series.length * 26)
 
@@ -118,11 +134,20 @@ function TrendChart({ series, metric }) {
       <div className="flex items-end gap-1.5 h-[180px] px-1" style={{ minWidth }}>
         {series.map((d, i) => {
           const value = values[i]
-          const pct = Math.max(2, Math.round((value / max) * 100))
+          // A negative day (profit can go below 0 with heavy discounts or
+          // bad cost data) used to render as an indistinguishable tiny
+          // bar, same as a genuinely small-but-positive day — only the
+          // hover tooltip revealed it was actually a loss. Color it red
+          // so a loss day is visible at a glance, not just on hover.
+          const isLoss = value < 0
+          const pct = Math.max(2, Math.round((Math.abs(value) / max) * 100))
           const label = metric === 'units' ? `${formatNumber(value)} unit` : formatRupiah(value)
           return (
             <div key={d.date} className="flex-1 flex items-end h-full" title={`${fmtDateShort(d.date)}: ${label}`}>
-              <div className="w-full bg-[#28579C] hover:bg-[#1E4278] transition-colors rounded-t-sm" style={{ height: `${pct}%` }} />
+              <div
+                className={`w-full transition-colors rounded-t-sm ${isLoss ? 'bg-[#B8433B] hover:bg-[#8F332C]' : 'bg-[#28579C] hover:bg-[#1E4278]'}`}
+                style={{ height: `${pct}%` }}
+              />
             </div>
           )
         })}
@@ -411,8 +436,15 @@ export default function ProfitPage() {
 
               {compareA === compareB ? (
                 <EmptyState title="Pick two different menus." body="Choose two distinct menus above to compare their performance." />
-              ) : compareLoading || !compareData?.a || !compareData?.b ? (
+              ) : compareLoading || compareData === null ? (
                 <p className="text-sm text-[#5B6B82] px-1 py-10 text-center">Loading...</p>
+              ) : !compareData.a || !compareData.b ? (
+                // Backend returns null for a menu id it can't resolve for
+                // this business (e.g. deleted between page load and this
+                // fetch) — the old check (`!compareData?.a`) couldn't tell
+                // this apart from "still loading", so it got stuck showing
+                // "Loading..." forever with no way out.
+                <EmptyState title="Salah satu menu gak ketemu." body="Menu ini mungkin baru aja dihapus — pilih ulang menunya di atas." />
               ) : (
                 <CompareTable data={compareData} />
               )}
