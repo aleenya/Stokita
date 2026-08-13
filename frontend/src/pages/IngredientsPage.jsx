@@ -417,7 +417,7 @@ function RestockModal({ ingredient, onClose, onSaved }) {
   }
 
   return (
-    <Modal title={`Restock — ${ingredient.name}`} subtitle={`Stok saat ini: ${ingredient.current_stock} ${ingredient.unit}`} onClose={onClose}>
+    <Modal title={`Restock — ${ingredient.name}`} subtitle={`Stok saat ini: ${Number(ingredient.current_stock)} ${ingredient.unit}`} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -491,7 +491,7 @@ function WasteModal({ ingredient, onClose, onSaved }) {
     setError('')
     if (!qty || Number(qty) <= 0) return
     if (Number(qty) > Number(ingredient.current_stock)) {
-      setError('Qty gak boleh lebih dari stok yang ada.')
+      setError('Qty tidak boleh lebih dari stok yang ada.')
       return
     }
     setSaving(true)
@@ -508,7 +508,7 @@ function WasteModal({ ingredient, onClose, onSaved }) {
   return (
     <Modal
       title={`Tandai rusak — ${ingredient.name}`}
-      subtitle={`Stok saat ini: ${ingredient.current_stock} ${ingredient.unit}`}
+      subtitle={`Stok saat ini: ${Number(ingredient.current_stock)} ${ingredient.unit}`}
       onClose={onClose}
     >
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
@@ -523,7 +523,7 @@ function WasteModal({ ingredient, onClose, onSaved }) {
             autoFocus
           />
           <p className="text-xs text-[#8B96A6] mt-1.5">
-            Bahan yang udah kedaluwarsa/rusak dan gak bisa dipakai lagi — dicatat sebagai
+            Bahan yang udah kedaluwarsa/rusak dan tidak bisa dipakai lagi — dicatat sebagai
             adjustment, bukan restock.
           </p>
         </div>
@@ -775,7 +775,7 @@ function RestockFromReceiptModal({ onClose, onSaved }) {
       )}
 
       {receiptItems && receiptItems.length === 0 && (
-        <p className="text-sm text-[#5B6B82] mt-4">Gak ada item terdeteksi dari struk ini.</p>
+        <p className="text-sm text-[#5B6B82] mt-4">Tidak ada item terdeteksi dari struk ini.</p>
       )}
     </Modal>
   )
@@ -858,7 +858,7 @@ function EditIngredientModal({ ingredient, onClose, onSaved }) {
           />
         </div>
         <p className="text-xs text-[#8B96A6]">
-          Stok saat ini: {ingredient.current_stock} {ingredient.unit} — terkunci, pakai Restock buat mengubahnya.
+          Stok saat ini: {Number(ingredient.current_stock)} {ingredient.unit} — terkunci, pakai Restock buat mengubahnya.
         </p>
 
         {error && <p className={ERROR_BANNER}>{error}</p>}
@@ -1032,7 +1032,7 @@ export default function IngredientsPage() {
   }
 
   async function handleDeleteIngredient(ing) {
-    if (!window.confirm(`Hapus "${ing.name}"? Ini gak bisa dibatalin.`)) return
+    if (!window.confirm(`Hapus "${ing.name}"? Ini tidak bisa dibatalin.`)) return
     try {
       await api.delete(`/ingredients/${ing.id}/`)
       fetchIngredients()
@@ -1171,7 +1171,7 @@ export default function IngredientsPage() {
             </div>
           ) : restockRecs.length === 0 ? (
             <p className="text-sm text-[#5B6B82] px-5 py-6 text-center">
-              Gak ada bahan yang low/out-of-stock sekarang.
+              Tidak ada bahan yang low/out-of-stock sekarang.
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -1189,7 +1189,7 @@ export default function IngredientsPage() {
                   {restockRecs.map((r) => (
                     <tr key={r.id} className="border-t border-[#E4E2DC] hover:bg-[#F7F5F0]/70 transition-colors">
                       <td className="px-5 py-3.5 text-[#18233D] font-medium">{r.name}</td>
-                      <td className="px-5 py-3.5 text-right tabular-nums text-[#5B6B82]">{r.current_stock} {r.unit}</td>
+                      <td className="px-5 py-3.5 text-right tabular-nums text-[#5B6B82]">{Number(r.current_stock)} {r.unit}</td>
                       <td className="px-5 py-3.5 text-right tabular-nums text-[#5B6B82]">
                         {r.avg_daily_usage !== null ? `${r.avg_daily_usage} ${r.unit}/hari` : '—'}
                       </td>
@@ -1241,7 +1241,7 @@ export default function IngredientsPage() {
             </div>
           ) : expiringSoon.length === 0 ? (
             <p className="text-sm text-[#5B6B82] px-5 py-6 text-center">
-              Gak ada bahan yang mau expired dalam 7 hari ke depan.
+              Tidak ada bahan yang mau expired dalam 7 hari ke depan.
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -1260,7 +1260,7 @@ export default function IngredientsPage() {
                     return (
                       <tr key={ing.id} className="border-t border-[#E4E2DC] hover:bg-[#F7F5F0]/70 transition-colors">
                         <td className="px-5 py-3.5 text-[#18233D] font-medium">{ing.name}</td>
-                        <td className="px-5 py-3.5 text-right tabular-nums text-[#5B6B82]">{ing.current_stock} {ing.unit}</td>
+                        <td className="px-5 py-3.5 text-right tabular-nums text-[#5B6B82]">{Number(ing.current_stock)} {ing.unit}</td>
                         <td className="px-5 py-3.5 text-[#5B6B82]">{ing.expiry_date}</td>
                         <td className="px-5 py-3.5">
                           <div className="flex items-center justify-center">
@@ -1332,7 +1332,7 @@ export default function IngredientsPage() {
                 <IconPackage className="w-5 h-5 text-[#8B96A6]" />
               </div>
               <p className="text-sm font-semibold text-[#18233D]">
-                {ingredients.length === 0 ? 'Belum ada bahan' : 'Gak ada yang cocok'}
+                {ingredients.length === 0 ? 'Belum ada bahan' : 'Tidak ada yang cocok'}
               </p>
               <p className="text-sm text-[#5B6B82] mt-1">
                 {ingredients.length === 0
@@ -1367,7 +1367,7 @@ export default function IngredientsPage() {
                           <td className={`px-5 py-3.5 text-right tabular-nums ${status.key !== 'in_stock' ? 'font-semibold' : 'text-[#18233D]'} ${
                             status.key === 'out_of_stock' ? 'text-[#B8433B]' : status.key === 'low_stock' ? 'text-[#A2670C]' : ''
                           }`}>
-                            {ing.current_stock} {ing.unit}
+                            {Number(ing.current_stock)} {ing.unit}
                           </td>
                           <td className="px-5 py-3.5 text-right tabular-nums text-[#5B6B82]">{formatRupiah(ing.cost_per_unit)}</td>
                           <td className="px-5 py-3.5">

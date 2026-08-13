@@ -3,7 +3,7 @@ import api from '../api/client'
 import GoogleSignInButton from '../components/GoogleSignInButton'
 
 // Cuma buat nampilin email-nya di UI — verifikasi asli tetep di backend,
-// ini gak dipakai buat keputusan keamanan apa pun.
+// ini tidak dipakai buat keputusan keamanan apa pun.
 function decodeGoogleEmail(credential) {
   try {
     return JSON.parse(atob(credential.split('.')[1])).email || ''
@@ -184,14 +184,14 @@ export default function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
           Buat akun kamu
         </h1>
         <p className="text-sm text-[#5B6B82] mb-8 text-center">
-          Owner atau staff — pilih salah satu, biar kita siapin yang sesuai.
+          Pilih peran kamu sebagai pemilik bisnis atau staf.
         </p>
 
         {/* Role toggle */}
         <div className="flex bg-white border border-[#E4E2DC] rounded-md p-1 mb-6">
           {[
-            { key: 'owner', label: 'Saya pemilik business' },
-            { key: 'staff', label: 'Saya mau join tim' },
+            { key: 'owner', label: 'Pemilik Bisnis' },
+            { key: 'staff', label: 'Staf' },
           ].map((opt) => (
             <button
               key={opt.key}
@@ -241,7 +241,7 @@ export default function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               className={INPUT}
-              placeholder="Rini Wijaya"
+              placeholder="Sto Kita"
             />
           </div>
 
@@ -253,7 +253,7 @@ export default function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className={INPUT}
-                placeholder="rini"
+                placeholder="sto.kita"
               />
             </div>
             <div>
@@ -277,7 +277,7 @@ export default function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
                   value={businessName}
                   onChange={(e) => handleBusinessNameChange(e.target.value)}
                   className={INPUT}
-                  placeholder="Dapur Bu Rini"
+                  placeholder="Dapur Stokita"
                 />
               </div>
 
@@ -288,10 +288,10 @@ export default function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
                   value={businessSlug}
                   onChange={(e) => handleSlugChange(e.target.value)}
                   className={`${INPUT} text-sm`}
-                  placeholder="dapur-bu-rini"
+                  placeholder="dapur-stokita"
                 />
                 <p className="text-xs text-[#8B96A6] mt-1.5">
-                  Kita bakal tambahin string acak di belakangnya biar aman, jadi kodenya gak gampang ditebak.
+                  Kita bakal tambahin string acak di belakangnya biar aman, jadi kodenya tidak gampang ditebak.
                   Kode lengkapnya bisa kamu lihat di halaman Staff setelah daftar.
                 </p>
               </div>
@@ -304,7 +304,7 @@ export default function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
                 value={staffCode}
                 onChange={(e) => setStaffCode(e.target.value)}
                 className={`${INPUT} text-sm`}
-                placeholder="dapur-bu-rini"
+                placeholder="dapur-stokita"
               />
               <p className="text-xs text-[#8B96A6] mt-1.5">
                 Minta kode ini ke pemilik business kamu.

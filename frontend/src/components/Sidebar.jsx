@@ -74,7 +74,7 @@ export const NAV_ITEMS = [
   { key: 'menus', label: 'Menu', Icon: IconMenus },
   { key: 'sales', label: 'Penjualan', Icon: IconSales },
   { key: 'profit', label: 'Performa', Icon: IconPerformance },
-  { key: 'people', label: 'Staff', Icon: IconPeople },
+  { key: 'people', label: 'Staf', Icon: IconPeople },
 ]
 
 export const pageLabel = (key) => NAV_ITEMS.find((i) => i.key === key)?.label || 'Stokita'

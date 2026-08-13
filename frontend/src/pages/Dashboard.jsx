@@ -44,7 +44,7 @@ const num = (v) => (v === null || v === undefined || v === '' ? 0 : Number(v))
 
 // DRF list endpoints bisa balikin array langsung ATAU object paginated
 // {count, next, previous, results: [...]} tergantung setting pagination —
-// helper ini nerima keduanya biar gak diam-diam kosong kalau backend
+// helper ini nerima keduanya biar tidak diam-diam kosong kalau backend
 // pagination-nya nyala.
 const extractList = (data) => {
   if (Array.isArray(data)) return data
@@ -107,7 +107,7 @@ function mapRestockItem(ing) {
     refId: ing.id,
     title: ing.name,
     currentStock,
-    recommendedQty: ing.recommended_restock_qty ?? null,
+    recommendedQty: ing.recommended_restock_qty != null ? num(ing.recommended_restock_qty) : null,
     unit: ing.unit || '',
     isZeroOrLess: currentStock <= 0,
     gotoPage: 'ingredients',
@@ -487,7 +487,7 @@ export default function Dashboard({ ownerName = 'Bos', onNavigate }) {
 
       // GET /briefs/actions/ -> semua BriefAction berstatus 'acted' milik
       // business ini, LINTAS brief (bukan cuma brief hari ini) — biar
-      // history gak hilang tiap kali brief baru di-generate.
+      // history tidak hilang tiap kali brief baru di-generate.
       const historyRes = await api.get('/briefs/actions/').catch(() => null)
       setHistoryRaw(extractList(historyRes?.data))
 
@@ -637,7 +637,7 @@ export default function Dashboard({ ownerName = 'Bos', onNavigate }) {
                   'Memuat brief hari ini…'
               ) : openCount === 0 ? (
                   <>
-                    Semua udah beres — <span className="text-white font-semibold">gak ada prioritas yang perlu ditangani</span> sekarang.
+                    Semua udah beres — <span className="text-white font-semibold">tidak ada prioritas yang perlu ditangani</span> sekarang.
                   </>
               ) : (
                   <>
@@ -773,7 +773,7 @@ export default function Dashboard({ ownerName = 'Bos', onNavigate }) {
                     ) : (
                         <div className={`rounded-xl bg-white px-5 py-6 text-center ${SHADOW_CARD}`}>
                           <p className="text-sm font-semibold text-[#18233D]">
-                            {brief ? 'Gak ada yang urgent hari ini.' : 'Brief hari ini belum digenerate.'}
+                            {brief ? 'Tidak ada yang urgent hari ini.' : 'Brief hari ini belum digenerate.'}
                           </p>
                           <p className="text-sm text-[#5B6B82] mt-1">
                             {brief
@@ -810,7 +810,7 @@ export default function Dashboard({ ownerName = 'Bos', onNavigate }) {
                   </section>
                 </div>
 
-                {/* KOLOM KANAN: Stock (Needs Restock) & Expiry — LIVE, bukan bagian brief, gak kena cooldown */}
+                {/* KOLOM KANAN: Stock (Needs Restock) & Expiry — LIVE, bukan bagian brief, tidak kena cooldown */}
                 <div className="space-y-8">
                   <section aria-labelledby="stock-heading">
                     <div className="flex items-center justify-between mb-3">
@@ -848,7 +848,7 @@ export default function Dashboard({ ownerName = 'Bos', onNavigate }) {
                           ))}
                         </div>
                     ) : (
-                        <p className="text-sm text-[#8B96A6]">Gak ada yang mau kadaluwarsa.</p>
+                        <p className="text-sm text-[#8B96A6]">Tidak ada yang mau kadaluwarsa.</p>
                     )}
                   </section>
                 </div>

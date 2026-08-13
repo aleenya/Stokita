@@ -189,12 +189,9 @@ export default function LoginPage({ onLoginSuccess, onSwitchToRegister }) {
       {/* RIGHT — form panel */}
       <div className="md:w-1/2 bg-[#F7F5F0] flex items-center justify-center px-8 py-12 md:p-14">
         <div className="w-full max-w-sm">
-          <h2 className="text-2xl font-extrabold tracking-tight text-[#18233D] mb-1">
+          <h2 className="text-2xl font-extrabold tracking-tight text-[#18233D] mb-8">
             Selamat datang kembali
           </h2>
-          <p className="text-sm text-[#5B6B82] mb-8">
-            Login pake akun yang udah dibuatin owner kamu.
-          </p>
 
           <form onSubmit={handleSubmit} className="space-y-5" noValidate>
             <div>
@@ -208,7 +205,7 @@ export default function LoginPage({ onLoginSuccess, onSwitchToRegister }) {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className={INPUT}
-                placeholder="rini"
+                placeholder="sto.kita"
               />
             </div>
 
