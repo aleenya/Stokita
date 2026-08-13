@@ -92,8 +92,22 @@ function formatRupiah(n) {
 function marginPct(menu) {
   const price = Number(menu.sell_price) || 0
   const cost = Number(menu.unit_cost) || 0
+  // No recipe, or cost <= 0 (unpriced ingredients / corrupted data) means
+  // there's no reliable cost to base a margin on — returning a fake 100%
+  // here would make an unknown-cost menu look like the healthiest one on
+  // the page. Let the caller show why instead of a number.
   if (price <= 0) return null
+  if (menu.recipe_lines.length === 0) return null
+  if (cost <= 0) return null
   return ((price - cost) / price) * 100
+}
+
+function marginIssueLabel(menu) {
+  const cost = Number(menu.unit_cost) || 0
+  if (cost < 0) return 'Data biaya gak valid'
+  if (menu.recipe_lines.length === 0) return 'Belum ada resep'
+  if (cost === 0) return 'Biaya ingredient belum diisi'
+  return null
 }
 
 function StatusBadge({ tone, label }) {
@@ -158,24 +172,24 @@ function HeroBanner({ metrics, onAddMenu, onViewAtRisk, atRiskActive }) {
       <div className="flex flex-wrap items-end justify-between gap-4 mb-3.5">
         <div className="min-w-0">
           <h1 className="text-[22px] font-extrabold tracking-tight text-[#18233D]">
-            Menu &amp; Recipe Management
+            Manajemen Menu &amp; Resep
           </h1>
-          <p className="text-sm text-[#5B6B82] mt-1">Manage your catalog, recipes, and profit margins.</p>
+          <p className="text-sm text-[#5B6B82] mt-1">Kelola katalog, resep, dan margin profit kamu.</p>
         </div>
         <button onClick={onAddMenu} className={BTN_PRIMARY}>
-          <span className="inline-flex items-center gap-1.5"><IconPlus className="w-4 h-4" /> Add Menu</span>
+          <span className="inline-flex items-center gap-1.5"><IconPlus className="w-4 h-4" /> Tambah Menu</span>
         </button>
       </div>
       <div className="flex flex-wrap gap-2">
-        <InlinePill label="Total Menus" value={metrics.total} />
+        <InlinePill label="Total Menu" value={metrics.total} />
         <InlinePill
-          label="Below Target Margin"
+          label="Di Bawah Target Margin"
           value={metrics.belowTarget}
           tone={metrics.belowTarget > 0 ? 'warning' : 'neutral'}
           onClick={onViewAtRisk}
           active={atRiskActive}
         />
-        <InlinePill label="Avg Margin" value={metrics.avgMargin === null ? '—' : `${metrics.avgMargin.toFixed(1)}%`} />
+        <InlinePill label="Rata-rata Margin" value={metrics.avgMargin === null ? '—' : `${metrics.avgMargin.toFixed(1)}%`} />
       </div>
     </div>
   )
@@ -241,7 +255,7 @@ function MenuFormModal({ initial, onClose, onSaved }) {
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             className={INPUT}
-            placeholder="Chicken Rice Bowl"
+            placeholder="Nasi Ayam"
           />
         </div>
 
@@ -366,7 +380,7 @@ function RecipeModal({ menu, ingredients, onClose, onSaved }) {
             return (
               <div key={idx} className="flex items-end gap-2">
                 <div className="flex-1">
-                  <label className={LABEL}>Ingredient</label>
+                  <label className={LABEL}>Bahan</label>
                   <select
                     value={line.ingredient_id}
                     onChange={(e) => updateLine(idx, { ingredient_id: e.target.value })}
@@ -543,7 +557,9 @@ function DiscountModal({ menu, onClose, onSaved }) {
 
 function RowActionMenu({ isActive, hasDiscount, onEdit, onDiscount, onToggleActive, onDelete, deleting }) {
   const [open, setOpen] = useState(false)
+  const [openUpward, setOpenUpward] = useState(false)
   const ref = useRef(null)
+  const btnRef = useRef(null)
 
   useEffect(() => {
     if (!open) return
@@ -554,19 +570,31 @@ function RowActionMenu({ isActive, hasDiscount, onEdit, onDiscount, onToggleActi
     return () => document.removeEventListener('mousedown', onClick)
   }, [open])
 
+  function handleToggle() {
+    if (!open && btnRef.current) {
+      // Menu is ~150px tall (3 items + padding) — if there isn't room
+      // below the button on screen, grow it upward instead so it stays
+      // fully visible for rows near the bottom of the table.
+      const rect = btnRef.current.getBoundingClientRect()
+      setOpenUpward(window.innerHeight - rect.bottom < 160)
+    }
+    setOpen((v) => !v)
+  }
+
   return (
     <div className="relative inline-block" ref={ref}>
       <button
+        ref={btnRef}
         type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-label="More actions"
+        onClick={handleToggle}
+        aria-label="Aksi lainnya"
         aria-expanded={open}
         className="w-7 h-7 flex items-center justify-center rounded-full text-[#8B96A6] hover:bg-[#F7F5F0] hover:text-[#18233D] transition-colors"
       >
         <IconMoreVertical />
       </button>
       {open && (
-        <div className={`absolute right-0 top-8 z-10 w-44 rounded-lg bg-white border border-[#E4E2DC] ${SHADOW_FLOAT} py-1`}>
+        <div className={`absolute right-0 ${openUpward ? 'bottom-8' : 'top-8'} z-10 w-44 rounded-lg bg-white border border-[#E4E2DC] ${SHADOW_FLOAT} py-1`}>
           <button
             type="button"
             onClick={() => { setOpen(false); onEdit() }}
@@ -579,14 +607,14 @@ function RowActionMenu({ isActive, hasDiscount, onEdit, onDiscount, onToggleActi
             onClick={() => { setOpen(false); onDiscount() }}
             className="w-full flex items-center gap-2 text-left px-3 py-2 text-sm text-[#18233D] hover:bg-[#F7F5F0] transition-colors"
           >
-            <IconPercent className="w-3.5 h-3.5 text-[#8B96A6]" /> {hasDiscount ? 'Edit discount' : 'Set discount'}
+            <IconPercent className="w-3.5 h-3.5 text-[#8B96A6]" /> {hasDiscount ? 'Edit diskon' : 'Atur diskon'}
           </button>
           <button
             type="button"
             onClick={() => { setOpen(false); onToggleActive() }}
             className="w-full flex items-center gap-2 text-left px-3 py-2 text-sm text-[#18233D] hover:bg-[#F7F5F0] transition-colors"
           >
-            <IconPower className="w-3.5 h-3.5 text-[#8B96A6]" /> {isActive ? 'Deactivate' : 'Activate'}
+            <IconPower className="w-3.5 h-3.5 text-[#8B96A6]" /> {isActive ? 'Nonaktifkan' : 'Aktifkan'}
           </button>
           <button
             type="button"
@@ -594,7 +622,7 @@ function RowActionMenu({ isActive, hasDiscount, onEdit, onDiscount, onToggleActi
             disabled={deleting}
             className="w-full flex items-center gap-2 text-left px-3 py-2 text-sm text-[#B8433B] hover:bg-[#FBEBEA] transition-colors disabled:opacity-50"
           >
-            <IconTrash className="w-3.5 h-3.5" /> {deleting ? 'Deleting…' : 'Delete'}
+            <IconTrash className="w-3.5 h-3.5" /> {deleting ? 'Menghapus…' : 'Hapus'}
           </button>
         </div>
       )}
@@ -725,7 +753,7 @@ export default function MenusPage({ onLogout }) {
             }}
             className={`shrink-0 text-sm font-semibold ${LINK_BRAND}`}
           >
-            Retry
+            Coba Lagi
           </button>
         </p>
       )}
@@ -734,9 +762,9 @@ export default function MenusPage({ onLogout }) {
       <div className={`bg-white rounded-2xl ${SHADOW_CARD} overflow-hidden`}>
         <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-[#E4E2DC]">
           <h2 className="text-[15px] font-bold text-[#18233D]">
-            Menus
+            Menu
             <span className="ml-2 text-xs font-medium text-[#8B96A6]">
-              {visibleMenus.length} of {menus.length}
+              {visibleMenus.length} dari {menus.length}
             </span>
           </h2>
           <div className="flex flex-wrap gap-2.5">
@@ -745,7 +773,7 @@ export default function MenusPage({ onLogout }) {
               <input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search menus…"
+                placeholder="Cari menu…"
                 className={`${INPUT} w-56 pl-9`}
               />
             </div>
@@ -755,10 +783,10 @@ export default function MenusPage({ onLogout }) {
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className={`${INPUT} appearance-none pr-8 w-40`}
               >
-                <option value="all">All statuses</option>
-                <option value="active">Active</option>
-                <option value="inactive">Inactive</option>
-                <option value="at_risk">Below target</option>
+                <option value="all">Semua status</option>
+                <option value="active">Aktif</option>
+                <option value="inactive">Nonaktif</option>
+                <option value="at_risk">Di bawah target</option>
               </select>
               <svg
                 className="w-3.5 h-3.5 text-[#8B96A6] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none"
@@ -772,7 +800,7 @@ export default function MenusPage({ onLogout }) {
         </div>
 
         {loading ? (
-          <p className="text-sm text-[#8B96A6] px-5 py-10 text-center">Loading…</p>
+          <p className="text-sm text-[#8B96A6] px-5 py-10 text-center">Memuat…</p>
         ) : visibleMenus.length === 0 ? (
           <div className="py-16 text-center">
             <p className="text-[#5B6B82]">
@@ -784,11 +812,11 @@ export default function MenusPage({ onLogout }) {
             <table className="w-full text-sm min-w-[760px]">
               <thead>
                 <tr className="bg-[#F7F5F0] text-left text-xs uppercase tracking-wide text-[#8B96A6]">
-                  <th className="px-5 py-3 font-bold">Name</th>
-                  <th className="px-5 py-3 font-bold text-right">Sell price</th>
-                  <th className="px-5 py-3 font-bold text-right">Unit cost</th>
+                  <th className="px-5 py-3 font-bold">Nama</th>
+                  <th className="px-5 py-3 font-bold text-right">Harga jual</th>
+                  <th className="px-5 py-3 font-bold text-right">Biaya unit</th>
                   <th className="px-5 py-3 font-bold text-right">Margin</th>
-                  <th className="px-5 py-3 font-bold">Recipe</th>
+                  <th className="px-5 py-3 font-bold">Resep</th>
                   <th className="px-5 py-3 font-bold">Status</th>
                   <th className="px-5 py-3 font-bold w-12"></th>
                 </tr>
@@ -830,14 +858,25 @@ export default function MenusPage({ onLogout }) {
                           `Rp ${formatRupiah(menu.sell_price)}`
                         )}
                       </td>
-                      <td className="px-5 py-3 text-right tabular-nums text-[#5B6B82]">Rp {formatRupiah(menu.unit_cost)}</td>
+                      <td className={`px-5 py-3 text-right tabular-nums ${Number(menu.unit_cost) < 0 ? 'font-semibold text-[#B8433B]' : 'text-[#5B6B82]'}`}>
+                        Rp {formatRupiah(menu.unit_cost)}
+                      </td>
                       <td className="px-5 py-3 text-right tabular-nums">
-                        <span className="inline-flex items-center gap-1">
-                          {belowTarget && <IconAlertTriangle className="w-3.5 h-3.5 text-[#B8433B]" />}
-                          <span className={belowTarget ? 'font-semibold text-[#B8433B]' : 'text-[#2E7D53]'}>
-                            {margin === null ? '—' : `${margin.toFixed(1)}%`}
+                        {margin === null ? (
+                          <span className="inline-flex items-center gap-1">
+                            {Number(menu.unit_cost) < 0 && <IconAlertTriangle className="w-3.5 h-3.5 text-[#B8433B]" />}
+                            <span className={`text-xs font-medium ${Number(menu.unit_cost) < 0 ? 'text-[#B8433B]' : 'text-[#8B96A6]'}`}>
+                              {marginIssueLabel(menu)}
+                            </span>
                           </span>
-                        </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1">
+                            {belowTarget && <IconAlertTriangle className="w-3.5 h-3.5 text-[#B8433B]" />}
+                            <span className={belowTarget ? 'font-semibold text-[#B8433B]' : 'text-[#2E7D53]'}>
+                              {margin.toFixed(1)}%
+                            </span>
+                          </span>
+                        )}
                         <span className="block text-xs text-[#8B96A6]">target {Number(menu.target_margin)}%</span>
                       </td>
                       <td className="px-5 py-3">
@@ -846,11 +885,11 @@ export default function MenusPage({ onLogout }) {
                           className={`inline-flex items-center gap-1.5 text-sm font-semibold ${LINK_BRAND}`}
                         >
                           <IconBook className="w-3.5 h-3.5" />
-                          {menu.recipe_lines.length === 0 ? 'Add recipe' : `${menu.recipe_lines.length} ingredient`}
+                          {menu.recipe_lines.length === 0 ? 'Tambah resep' : `${menu.recipe_lines.length} bahan`}
                         </button>
                       </td>
                       <td className="px-5 py-3">
-                        <StatusBadge tone={menu.is_active ? 'success' : 'neutral'} label={menu.is_active ? 'Active' : 'Inactive'} />
+                        <StatusBadge tone={menu.is_active ? 'success' : 'neutral'} label={menu.is_active ? 'Aktif' : 'Nonaktif'} />
                       </td>
                       <td className="px-5 py-3 text-right">
                         <RowActionMenu

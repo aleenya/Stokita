@@ -69,19 +69,19 @@ function mapBriefAction(a) {
     title: a.title,
     summary: a.message,
     badge: {
-      label: a.action_type === 'discount' ? `Discount ${a.discount_pct ?? ''}%`.trim() : 'Review Price',
+      label: a.action_type === 'discount' ? `Diskon ${a.discount_pct ?? ''}%`.trim() : 'Review Harga',
       tone: 'warning',
     },
     checkable: true,
-    actionLabel: 'View details',
+    actionLabel: 'Lihat detail',
     recommendation: a.message,
     reasoning: a.message,
     signals: [
-      a.discount_pct != null ? `Discount: ${a.discount_pct}%` : null,
-      `Est. impact: ${rupiah(a.rupiah_impact)}`,
+      a.discount_pct != null ? `Diskon: ${a.discount_pct}%` : null,
+      `Estimasi dampak: ${rupiah(a.rupiah_impact)}`,
     ].filter(Boolean),
     suggestedAction: a.message,
-    gotoLabel: 'Go to Menus',
+    gotoLabel: 'Ke halaman Menu',
     gotoPage: 'menus',
     refMenuId: a.related_menu,
   }
@@ -122,8 +122,8 @@ function mapExpiryItem(ing) {
     summary: ing.expiry_date
         ? `Kadaluwarsa ${fmtDate(ing.expiry_date)}`
         : 'Segera kadaluwarsa',
-    badge: { label: 'Urgent', tone: 'critical' },
-    actionLabel: 'Go to Ingredients',
+    badge: { label: 'Mendesak', tone: 'critical' },
+    actionLabel: 'Ke halaman Stok',
     gotoPage: 'ingredients',
   }
 }
@@ -191,7 +191,7 @@ function ReviewCard({ p, onToggle, onDismiss }) {
               type="button"
               role="checkbox"
               aria-checked={p.completed}
-              aria-label={`Mark ${p.title} as handled`}
+              aria-label={`Tandai ${p.title} sebagai selesai`}
               onClick={() => onToggle(p.id)}
               className={`w-5 h-5 mt-0.5 sm:mt-1 rounded-full border-2 shrink-0 transition-colors flex items-center justify-center ${
                   p.completed
@@ -233,7 +233,7 @@ function ReviewCard({ p, onToggle, onDismiss }) {
                   onClick={() => onDismiss(p.id)}
                   className="text-xs font-medium text-[#8B96A6] hover:text-[#5B6B82]"
               >
-                Dismiss
+                Abaikan
               </button>
           )}
         </div>
@@ -364,7 +364,7 @@ function ActionHistoryItem({ a }) {
         <div className="px-4 pb-3 pt-1 border-t border-[#E4E2DC]/60 mt-1">
           <p className="text-sm text-[#5B6B82] leading-relaxed">{a.summary}</p>
           <p className="text-[11px] font-medium text-[#8B96A6] mt-2">
-            Handled {fmtDateTime(a.actionTakenAt)}
+            Ditangani {fmtDateTime(a.actionTakenAt)}
           </p>
         </div>
       )}
@@ -379,7 +379,7 @@ function ActionHistory({ items }) {
   if (!items.length) {
     return (
         <p className="text-sm text-[#8B96A6] px-1">
-          No actions recorded yet. When you mark a recommendation as handled, it will show up here.
+          Belum ada aksi yang tercatat. Begitu kamu tandai rekomendasi sebagai selesai, bakal muncul di sini.
         </p>
     )
   }
@@ -407,14 +407,14 @@ function Countdown({ target }) {
 
   if (!target) return null
   let diff = new Date(target).getTime() - now
-  if (diff <= 0) return <>Ready to generate</>
+  if (diff <= 0) return <>Siap digenerate</>
 
   const h = Math.floor(diff / 3600000)
   const m = Math.floor((diff % 3600000) / 60000)
   const s = Math.floor((diff % 60000) / 1000)
   const pad = (n) => String(n).padStart(2, '0')
 
-  return <>Next in {pad(h)}:{pad(m)}:{pad(s)}</>
+  return <>Bisa lagi dalam {pad(h)}:{pad(m)}:{pad(s)}</>
 }
 
 function Toast({ message }) {
@@ -433,7 +433,7 @@ function Toast({ message }) {
    PAGE
    ========================================================================= */
 
-export default function Dashboard({ ownerName = 'there', onNavigate }) {
+export default function Dashboard({ ownerName = 'Bos', onNavigate }) {
   const [status, setStatus] = useState('loading')
   const [brief, setBrief] = useState(null)
   const [regenerating, setRegenerating] = useState(false)
@@ -555,7 +555,7 @@ export default function Dashboard({ ownerName = 'there', onNavigate }) {
       setBrief(res.data)
       setCanGenerateNow(false)
       setNextGenerateAt(new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString())
-      showToast('Brief generated.')
+      showToast('Brief berhasil digenerate.')
     } catch (err) {
       if (err.response?.status === 429) {
         setCanGenerateNow(false)
@@ -604,11 +604,11 @@ export default function Dashboard({ ownerName = 'there', onNavigate }) {
   }
 
   function togglePriority(id) {
-    updateActionStatus(id, 'acted', 'Marked as handled.')
+    updateActionStatus(id, 'acted', 'Ditandai selesai.')
   }
 
   function dismissPriority(id) {
-    updateActionStatus(id, 'dismissed', 'Dismissed for now.')
+    updateActionStatus(id, 'dismissed', 'Diabaikan untuk sekarang.')
   }
 
   function goToAction(p) {
@@ -630,21 +630,21 @@ export default function Dashboard({ ownerName = 'there', onNavigate }) {
           <div className="relative max-w-[960px] mx-auto">
             <p className="text-sm text-white/50 font-medium mb-1.5">{fmtDate(new Date())}</p>
             <h1 className="text-[22px] sm:text-[27px] font-extrabold tracking-tight text-white">
-              Good morning, {String(ownerName).split(' ')[0]}
+              Selamat pagi, {String(ownerName).split(' ')[0]}
             </h1>
             <p className="text-[15px] text-white/70 mt-3.5 leading-relaxed max-w-[560px]">
               {status === 'loading' ? (
-                  'Loading today’s brief…'
+                  'Memuat brief hari ini…'
               ) : openCount === 0 ? (
                   <>
-                    All caught up — <span className="text-white font-semibold">no open priorities</span> right now.
+                    Semua udah beres — <span className="text-white font-semibold">gak ada prioritas yang perlu ditangani</span> sekarang.
                   </>
               ) : (
                   <>
                 <span className="text-white font-semibold">
-                  {openCount} item{openCount === 1 ? '' : 's'}
+                  {openCount} item
                 </span>{' '}
-                    need{openCount === 1 ? 's' : ''} your attention today.
+                    butuh perhatian kamu hari ini.
                   </>
               )}
             </p>
@@ -656,26 +656,26 @@ export default function Dashboard({ ownerName = 'there', onNavigate }) {
           <div className="relative -mt-10 mb-9 rounded-2xl bg-white shadow-[0_14px_32px_-10px_rgba(20,29,52,0.28),0_2px_8px_rgba(20,29,52,0.08)] ring-1 ring-white/60 overflow-hidden">
             <div className="flex flex-col divide-y divide-[#E4E2DC] sm:flex-row sm:divide-y-0 sm:divide-x">
               <div className="flex-1 px-6 py-4">
-                <p className="text-xs text-[#8B96A6] mb-1">Today's Sales</p>
+                <p className="text-xs text-[#8B96A6] mb-1">Penjualan Hari Ini</p>
                 <div className="flex items-end justify-between gap-3">
                   <div className="flex items-baseline gap-2">
                     <p className="text-[22px] font-bold text-[#18233D]">{rupiah(salesToday.revenue)}</p>
-                    <Trend pct={trendPct} tooltip="Compared to the same period yesterday" />
+                    <Trend pct={trendPct} tooltip="Dibanding periode yang sama kemarin" />
                   </div>
                 </div>
               </div>
               <div className="flex-1 px-6 py-4">
-                <p className="text-xs text-[#8B96A6] mb-1">Items Sold Today</p>
+                <p className="text-xs text-[#8B96A6] mb-1">Item Terjual Hari Ini</p>
                 <p className="text-[22px] font-bold text-[#18233D]">{salesToday.volume}</p>
                 <p className="text-[11px] text-[#8B96A6] mt-0.5">{salesToday.orders} transaksi tercatat</p>
               </div>
               <div className="flex-1 px-6 py-4">
-                <p className="text-xs text-[#8B96A6] mb-1">Priorities</p>
+                <p className="text-xs text-[#8B96A6] mb-1">Prioritas</p>
                 <p className="text-[22px] font-bold text-[#18233D]">
                   {status === 'loading' ? (
                       '—'
                   ) : totalActions === 0 ? (
-                      <span className="text-sm font-semibold text-[#2E7D53]">All clear</span>
+                      <span className="text-sm font-semibold text-[#2E7D53]">Semua Beres</span>
                   ) : (
                       <>
                         {handledCount}
@@ -685,7 +685,7 @@ export default function Dashboard({ ownerName = 'there', onNavigate }) {
                                 openCount === 0 ? 'text-[#2E7D53]' : 'text-[#A2670C]'
                             }`}
                         >
-                      handled
+                      selesai
                     </span>
                       </>
                   )}
@@ -701,15 +701,15 @@ export default function Dashboard({ ownerName = 'there', onNavigate }) {
 
             <div className="flex flex-col items-start gap-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 bg-[#F7F5F0]/60 px-4 sm:px-6 py-3">
               <p className="text-sm text-[#5B6B82]">
-                <span className="text-[#18233D] font-semibold">Record today's sales as they happen.</span>{' '}
-                Keeps revenue and stock usage accurate.
+                <span className="text-[#18233D] font-semibold">Catat penjualan hari ini begitu terjadi.</span>{' '}
+                Biar data revenue dan pemakaian stok tetap akurat.
               </p>
               <button
                   type="button"
-                  onClick={() => (onNavigate ? onNavigate('sales') : showToast('Hook up Record sales here.'))}
+                  onClick={() => (onNavigate ? onNavigate('sales') : showToast('Sambungkan ke halaman Record Sales di sini.'))}
                   className="shrink-0 text-sm font-semibold text-white bg-[#28579C] hover:bg-[#1E4278] transition-colors rounded-full px-4 py-2"
               >
-                Record sales
+                Catat penjualan
               </button>
             </div>
           </div>
@@ -717,7 +717,7 @@ export default function Dashboard({ ownerName = 'there', onNavigate }) {
           {/* ============ MAIN LAYOUT (2 COLUMNS) ============ */}
           <div className="flex items-baseline justify-between mb-4">
             <h2 className="text-[13px] font-bold text-[#18233D] uppercase tracking-wide">
-              Today's Priorities
+              Prioritas Hari Ini
             </h2>
             <button
                 type="button"
@@ -727,10 +727,10 @@ export default function Dashboard({ ownerName = 'there', onNavigate }) {
                 className="text-xs font-semibold text-[#28579C] hover:text-[#1E4278] disabled:opacity-50"
             >
               {regenerating
-                  ? 'Generating…'
+                  ? 'Membuat…'
                   : !canGenerateNow
                       ? <Countdown target={nextGenerateAt} />
-                      : 'Regenerate'}
+                      : 'Generate Ulang'}
             </button>
           </div>
 
@@ -743,14 +743,14 @@ export default function Dashboard({ ownerName = 'there', onNavigate }) {
 
           {status === 'error' && (
               <div className={`rounded-xl bg-white px-5 py-6 text-center ${SHADOW_CARD}`}>
-                <p className="text-sm font-semibold text-[#18233D]">Couldn't load today's data.</p>
-                <p className="text-sm text-[#5B6B82] mt-1">Check your connection and try again.</p>
+                <p className="text-sm font-semibold text-[#18233D]">Gagal memuat data hari ini.</p>
+                <p className="text-sm text-[#5B6B82] mt-1">Cek koneksi kamu dan coba lagi.</p>
                 <button
                     type="button"
                     onClick={load}
                     className="mt-3 text-sm font-semibold text-white bg-[#28579C] hover:bg-[#1E4278] transition-colors rounded-full px-4 py-2"
                 >
-                  Retry
+                  Coba Lagi
                 </button>
               </div>
           )}
@@ -762,7 +762,7 @@ export default function Dashboard({ ownerName = 'there', onNavigate }) {
                 <div className="space-y-8">
                   <section aria-labelledby="price-heading">
                     <p id="price-heading" className="text-xs font-semibold text-[#8B96A6] uppercase tracking-wide mb-3">
-                      Review Price &amp; Discount
+                      Review Harga &amp; Diskon
                     </p>
                     {priceActions.length > 0 ? (
                         <div className="space-y-2.5">
@@ -773,12 +773,12 @@ export default function Dashboard({ ownerName = 'there', onNavigate }) {
                     ) : (
                         <div className={`rounded-xl bg-white px-5 py-6 text-center ${SHADOW_CARD}`}>
                           <p className="text-sm font-semibold text-[#18233D]">
-                            {brief ? 'Nothing urgent today.' : "Today's brief hasn't been generated yet."}
+                            {brief ? 'Gak ada yang urgent hari ini.' : 'Brief hari ini belum digenerate.'}
                           </p>
                           <p className="text-sm text-[#5B6B82] mt-1">
                             {brief
-                                ? 'Stokita will surface new price/discount actions here as soon as something needs your attention.'
-                                : 'Generate it to see AI-ranked pricing recommendations for today.'}
+                                ? 'Stokita bakal nampilin aksi harga/diskon baru di sini begitu ada yang butuh perhatian kamu.'
+                                : 'Generate buat liat rekomendasi harga dari AI hari ini.'}
                           </p>
                           {!brief && (
                               <button
@@ -788,10 +788,10 @@ export default function Dashboard({ ownerName = 'there', onNavigate }) {
                                   className="mt-3 text-sm font-semibold text-white bg-[#28579C] hover:bg-[#1E4278] transition-colors rounded-full px-4 py-2 disabled:opacity-50"
                               >
                                 {regenerating
-                                    ? 'Generating…'
+                                    ? 'Membuat…'
                                     : !canGenerateNow
                                         ? <Countdown target={nextGenerateAt} />
-                                        : "Generate today's brief"}
+                                        : 'Generate brief hari ini'}
                               </button>
                           )}
                         </div>
@@ -800,7 +800,7 @@ export default function Dashboard({ ownerName = 'there', onNavigate }) {
 
                   <section aria-labelledby="action-history-heading">
                     <p id="action-history-heading" className="text-xs font-semibold text-[#8B96A6] uppercase tracking-wide mb-3">
-                      Action History
+                      Riwayat Aksi
                     </p>
                     <div className={`rounded-xl bg-white ${SHADOW_CARD}`}>
                       <div className="p-4">
@@ -815,14 +815,14 @@ export default function Dashboard({ ownerName = 'there', onNavigate }) {
                   <section aria-labelledby="stock-heading">
                     <div className="flex items-center justify-between mb-3">
                       <p id="stock-heading" className="text-xs font-semibold text-[#8B96A6] uppercase tracking-wide">
-                        Stock — Needs Restock
+                        Stok — Perlu Restock
                       </p>
                       <button
                           type="button"
                           onClick={() => onNavigate && onNavigate('ingredients')}
                           className="text-xs font-semibold text-[#28579C] hover:text-[#1E4278] underline decoration-[#28579C]/30 underline-offset-2"
                       >
-                        Go to Restock →
+                        Ke Restock →
                       </button>
                     </div>
 
@@ -833,13 +833,13 @@ export default function Dashboard({ ownerName = 'there', onNavigate }) {
                           ))}
                         </div>
                     ) : (
-                        <p className="text-sm text-[#8B96A6]">Stock is looking good.</p>
+                        <p className="text-sm text-[#8B96A6]">Stok kamu aman.</p>
                     )}
                   </section>
 
                   <section aria-labelledby="expiry-heading">
                     <p id="expiry-heading" className="text-xs font-semibold text-[#8B96A6] uppercase tracking-wide mb-3">
-                      Stock — Expiry Alerts
+                      Stok — Peringatan Kadaluwarsa
                     </p>
                     {expiryActions.length > 0 ? (
                         <div className="space-y-2.5">
@@ -848,7 +848,7 @@ export default function Dashboard({ ownerName = 'there', onNavigate }) {
                           ))}
                         </div>
                     ) : (
-                        <p className="text-sm text-[#8B96A6]">No upcoming expiry.</p>
+                        <p className="text-sm text-[#8B96A6]">Gak ada yang mau kadaluwarsa.</p>
                     )}
                   </section>
                 </div>

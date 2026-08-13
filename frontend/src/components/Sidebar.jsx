@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
+import api from '../api/client'
+import GoogleSignInButton from './GoogleSignInButton'
 
 /* =========================================================================
    SIDEBAR
@@ -67,12 +69,12 @@ const IconPeople = () => (
 )
 
 export const NAV_ITEMS = [
-  { key: 'dashboard', label: 'Today', Icon: IconToday },
-  { key: 'ingredients', label: 'Stock', Icon: IconStock },
-  { key: 'menus', label: 'Menus', Icon: IconMenus },
-  { key: 'sales', label: 'Sales', Icon: IconSales },
-  { key: 'profit', label: 'Performance', Icon: IconPerformance },
-  { key: 'people', label: 'People', Icon: IconPeople },
+  { key: 'dashboard', label: 'Hari Ini', Icon: IconToday },
+  { key: 'ingredients', label: 'Stok', Icon: IconStock },
+  { key: 'menus', label: 'Menu', Icon: IconMenus },
+  { key: 'sales', label: 'Penjualan', Icon: IconSales },
+  { key: 'profit', label: 'Performa', Icon: IconPerformance },
+  { key: 'people', label: 'Staff', Icon: IconPeople },
 ]
 
 export const pageLabel = (key) => NAV_ITEMS.find((i) => i.key === key)?.label || 'Stokita'
@@ -105,6 +107,17 @@ export default function Sidebar({
   const items = NAV_ITEMS.filter((i) => pages.includes(i.key))
   const [identityOpen, setIdentityOpen] = useState(false)
   const identityRef = useRef(null)
+  const [googleLinkStatus, setGoogleLinkStatus] = useState('') // '' | 'linking' | 'linked' | error message
+
+  async function handleLinkGoogle(credential) {
+    setGoogleLinkStatus('linking')
+    try {
+      await api.post('/auth/google/link/', { credential })
+      setGoogleLinkStatus('linked')
+    } catch (err) {
+      setGoogleLinkStatus(err.response?.data?.error || 'Gagal menghubungkan Google.')
+    }
+  }
 
   useEffect(() => {
     if (!identityOpen) return
@@ -145,7 +158,7 @@ export default function Sidebar({
           <button
             type="button"
             onClick={onMobileClose}
-            aria-label="Close menu"
+            aria-label="Tutup menu"
             className="md:hidden ml-auto w-8 h-8 flex items-center justify-center rounded-md text-[#8B96A6] hover:bg-[#F7F5F0] transition-colors"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -165,7 +178,7 @@ export default function Sidebar({
           </svg>
         </button>
 
-        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto" aria-label="Main navigation">
+        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto" aria-label="Navigasi utama">
           {items.map(({ key, label, Icon }) => {
             const active = page === key
             return (
@@ -191,9 +204,36 @@ export default function Sidebar({
           })}
         </nav>
 
+        <div className="px-3 pb-3">
+          <button
+            type="button"
+            onClick={onAskStokita}
+            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-md border border-[#E4E2DC] bg-[#F7F5F0] text-left text-sm text-[#8B96A6] hover:border-[#CBD1DB] hover:text-[#5B6B82] transition-colors"
+          >
+            <svg className="w-[15px] h-[15px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            <span>Ask Stokita&hellip;</span>
+          </button>
+        </div>
+
         <div className="relative" ref={identityRef}>
           {identityOpen && (
             <div className="absolute bottom-full left-3 right-3 mb-1 rounded-lg border border-[#E4E2DC] bg-white shadow-[0_14px_32px_-10px_rgba(20,29,52,0.28),0_2px_8px_rgba(20,29,52,0.08)] py-1">
+              <div className="px-3 py-2">
+                {googleLinkStatus === 'linked' ? (
+                  <p className="text-xs font-medium text-[#2E7D53]">✓ Google terhubung</p>
+                ) : (
+                  <GoogleSignInButton
+                    label="Hubungkan Google"
+                    disabled={googleLinkStatus === 'linking'}
+                    onCredential={handleLinkGoogle}
+                  />
+                )}
+                {googleLinkStatus && googleLinkStatus !== 'linking' && googleLinkStatus !== 'linked' && (
+                  <p className="text-xs text-[#B8433B] mt-1.5">{googleLinkStatus}</p>
+                )}
+              </div>
               <button
                 type="button"
                 onClick={() => {
@@ -202,7 +242,7 @@ export default function Sidebar({
                 }}
                 className="w-full text-left px-3 py-2 text-sm font-medium text-[#B8433B] hover:bg-[#FBEBEA] transition-colors rounded-md"
               >
-                Log out
+                Keluar
               </button>
             </div>
           )}
@@ -232,7 +272,7 @@ export function MobileTopbar({ title, onOpenMenu = () => {}, open = false }) {
       <button
         type="button"
         onClick={onOpenMenu}
-        aria-label="Open menu"
+        aria-label="Buka menu"
         aria-expanded={open}
         className="w-9 h-9 -ml-1.5 flex items-center justify-center rounded-md text-[#5B6B82] hover:bg-[#F7F5F0] transition-colors"
       >

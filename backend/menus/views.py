@@ -1,3 +1,4 @@
+from decimal import Decimal, InvalidOperation
 from django.db import transaction
 from django.db.models import ProtectedError
 from django.shortcuts import get_object_or_404
@@ -15,7 +16,7 @@ class MenuViewSet(viewsets.ModelViewSet):
     serializer_class = MenuSerializer
 
     def get_permissions(self):
-        if self.action in ["create", "update", "partial_update", "destroy", "recipe"]:
+        if self.action in ["create", "update", "partial_update", "destroy", "recipe", "manual_discount"]:
             return [IsAuthenticated(), feature_required("menus_manage")()]
         return [IsAuthenticated()]
 
@@ -63,7 +64,7 @@ class MenuViewSet(viewsets.ModelViewSet):
         foreign_ids = [str(i) for i in ingredient_ids if i not in owned_ids]
         if foreign_ids:
             return Response(
-                {"error": f"Ingredient(s) not found in your business: {foreign_ids}"},
+                {"error": f"Ingredient gak ketemu di business kamu: {foreign_ids}"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -76,19 +77,28 @@ class MenuViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=["patch"], url_path="manual-discount")
     def manual_discount(self, request, pk=None):
+        """Set or clear the owner's manual promo discount. Kept strictly
+        separate from active_discount_* (the AI/ingredient-triggered
+        discount, owned by briefs/services.py) — this used to also
+        overwrite active_discount_pct directly ("manual selalu menang,
+        langsung timpa"), which both polluted the AI discount's own field
+        and didn't even work, since the effective-discount check required
+        active_discount_ingredient_id to be set too. Menu.get_effective_discount_pct()
+        now checks manual_discount_pct on its own, so this action only
+        ever touches the two manual_discount_* fields."""
         menu = get_object_or_404(Menu, pk=pk, business=request.user.business)
         pct = request.data.get("pct")
-        until = request.data.get("until")
+        until = request.data.get("until") or None
+
+        if pct is not None:
+            try:
+                pct = Decimal(str(pct))
+            except InvalidOperation:
+                return Response({"error": "pct harus berupa angka."}, status=status.HTTP_400_BAD_REQUEST)
+            if pct <= 0 or pct > 100:
+                return Response({"error": "Diskon harus lebih dari 0 dan maksimal 100."}, status=status.HTTP_400_BAD_REQUEST)
 
         menu.manual_discount_pct = pct
         menu.manual_discount_until = until
-        menu.active_discount_pct = pct          # manual selalu menang, langsung timpa
-        if not pct:
-            menu.active_discount_ingredient = None
-            menu.active_discount_expiry_date = None
-
-        menu.save(update_fields=[
-            "manual_discount_pct", "manual_discount_until",
-            "active_discount_pct", "active_discount_ingredient", "active_discount_expiry_date",
-        ])
+        menu.save(update_fields=["manual_discount_pct", "manual_discount_until"])
         return Response(MenuSerializer(menu).data)

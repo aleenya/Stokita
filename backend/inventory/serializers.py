@@ -11,8 +11,12 @@ class IngredientSerializer(serializers.ModelSerializer):
  
  
 class StockMovementSerializer(serializers.ModelSerializer):
+    ingredient_name = serializers.CharField(source="ingredient.name", read_only=True)
+    ingredient_unit = serializers.CharField(source="ingredient.unit", read_only=True)
+    created_by_name = serializers.CharField(source="created_by.username", read_only=True, default=None)
+
     class Meta:
         model = StockMovement
-        fields = ["id", "ingredient", "change_qty", "movement_type",
-                  "expiry_date", "related_sale", "created_at"]
+        fields = ["id", "ingredient", "ingredient_name", "ingredient_unit", "change_qty",
+                  "movement_type", "expiry_date", "related_sale", "created_by_name", "created_at"]
         read_only_fields = ["created_at"]

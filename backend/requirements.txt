@@ -4,6 +4,7 @@ psycopg2-binary
 python-decouple
 django-cors-headers
 google-genai
+google-auth
 rapidfuzz
 whitenoise
 djangorestframework-simplejwt

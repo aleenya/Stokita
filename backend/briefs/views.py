@@ -7,6 +7,7 @@ from .serializers import BriefActionSerializer, DailyBriefSerializer, ActionImpa
 from .services import (
     generate_daily_brief, mark_action_acted, generate_weekly_impact_checks,
     get_brief_cooldown_status, BriefCooldownError,
+    get_impact_cooldown_status, ImpactCooldownError, NoEligibleActionsError,
 )
 from rest_framework.permissions import IsAuthenticated
 from accounts.permissions import IsOwner
@@ -33,7 +34,7 @@ class BriefViewSet(viewsets.ViewSet):
 
         if not brief:
             return Response({
-                "detail": "No brief yet. Generate one.",
+                "detail": "Belum ada brief. Generate dulu satu.",
                 "can_generate_now": can_generate_now,
                 "next_generate_at": None,
             }, status=404)
@@ -63,7 +64,17 @@ class BriefViewSet(viewsets.ViewSet):
     @action(detail=False, methods=["post"], url_path="generate-weekly-impact")
     def generate_weekly_impact(self, request):
         """Tombol manual: jalanin pengecekan dampak mingguan sekarang juga."""
-        checks = generate_weekly_impact_checks(self._get_business())
+        try:
+            checks = generate_weekly_impact_checks(self._get_business())
+        except ImpactCooldownError as e:
+            return Response({
+                "detail": "Impact summary baru bisa digenerate lagi setelah 3 hari.",
+                "next_available_at": e.next_available_at.isoformat(),
+            }, status=status.HTTP_429_TOO_MANY_REQUESTS)
+        except NoEligibleActionsError as e:
+            return Response({
+                "detail": str(e),
+            }, status=status.HTTP_400_BAD_REQUEST)
         return Response({
             "generated_count": len(checks),
             "results": ActionImpactCheckSerializer(checks, many=True).data,
@@ -72,10 +83,18 @@ class BriefViewSet(viewsets.ViewSet):
     @action(detail=False, methods=["get"], url_path="impact-history")
     def impact_history(self, request):
         """Buat tab Performance: semua hasil pengecekan, terbaru duluan."""
+        business = self._get_business()
         checks = ActionImpactCheck.objects.filter(
-            action__brief__business=self._get_business()
+            action__brief__business=business,
         ).select_related("action").order_by("-week_start")
-        return Response(ActionImpactCheckSerializer(checks, many=True).data)
+
+        _, can_generate_now, next_available_at = get_impact_cooldown_status(business)
+
+        return Response({
+            "results": ActionImpactCheckSerializer(checks, many=True).data,
+            "can_generate_now": can_generate_now,
+            "next_generate_at": next_available_at.isoformat() if next_available_at else None,
+        })
 
  
 class BriefActionViewSet(viewsets.ViewSet):

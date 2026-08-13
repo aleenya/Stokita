@@ -11,6 +11,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from django.conf import settings
 from .cookies import clear_auth_cookies, set_auth_cookies
+from .google_auth import verify_google_token
 from .models import StaffFeatureGrant, User
 from .permissions import IsOwner
 from .serializers import BusinessSerializer, RegisterSerializer, StaffSerializer, UserSerializer
@@ -78,6 +79,72 @@ class LoginView(APIView):
         return response
 
 
+class GoogleLoginView(APIView):
+    """Sign in with an already-linked Google account — see GoogleLinkView.
+    Deliberately doesn't auto-create accounts: this app's registration flow
+    needs a role + business (or a join code), which a bare Google identity
+    doesn't carry."""
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        credential = request.data.get("credential")
+        if not credential:
+            return Response({"error": "credential wajib diisi."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            info = verify_google_token(credential)
+        except ValueError:
+            return Response({"error": "Token Google gak valid."}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = User.objects.filter(google_sub=info["sub"]).first()
+        if user is None:
+            return Response(
+                {"error": "Akun Google ini belum terhubung ke Stokita. Login manual dulu, "
+                          "lalu hubungkan Google dari menu akun."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        if not user.is_active:
+            return Response({"error": "Akun ini belum aktif."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        body = {"role": user.role, "business": BusinessSerializer(user.business).data}
+        response = Response(body, status=status.HTTP_200_OK)
+
+        refresh = RefreshToken.for_user(user)
+        set_auth_cookies(response, str(refresh.access_token), str(refresh))
+        return response
+
+
+class GoogleLinkView(APIView):
+    """Attach a Google identity to the currently logged-in account, so
+    GoogleLoginView has something to match later. Default cookie auth
+    applies (IsAuthenticated + CSRF enforced), same as any other mutating
+    endpoint."""
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        credential = request.data.get("credential")
+        if not credential:
+            return Response({"error": "credential wajib diisi."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            info = verify_google_token(credential)
+        except ValueError:
+            return Response({"error": "Token Google gak valid."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if User.objects.filter(google_sub=info["sub"]).exclude(pk=request.user.pk).exists():
+            return Response(
+                {"error": "Akun Google ini udah terhubung ke user lain."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        request.user.google_sub = info["sub"]
+        if info.get("email"):
+            request.user.email = info["email"]
+        request.user.save(update_fields=["google_sub", "email"])
+        return Response({"linked": True, "email": request.user.email})
+
+
 class LogoutView(APIView):
     """AllowAny on purpose: the access token may already be expired by the
     time someone logs out, but the refresh cookie (what actually needs
@@ -106,13 +173,13 @@ class RefreshView(APIView):
     def post(self, request):
         raw_refresh = request.COOKIES.get(settings.REFRESH_COOKIE_NAME)
         if not raw_refresh:
-            return Response({"error": "No refresh token."}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response({"error": "Refresh token tidak ditemukan."}, status=status.HTTP_401_UNAUTHORIZED)
 
         serializer = TokenRefreshSerializer(data={"refresh": raw_refresh})
         try:
             serializer.is_valid(raise_exception=True)
         except Exception:
-            response = Response({"error": "Session expired, please sign in again."}, status=status.HTTP_401_UNAUTHORIZED)
+            response = Response({"error": "Sesi udah habis, silakan login lagi."}, status=status.HTTP_401_UNAUTHORIZED)
             clear_auth_cookies(response)
             return response
 
@@ -155,7 +222,7 @@ class StaffViewSet(viewsets.ViewSet):
         features = request.data.get("features", [])
         invalid = [f for f in features if f not in valid_codes]
         if invalid:
-            return Response({"error": f"Unknown feature(s): {invalid}"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": f"Fitur gak dikenal: {invalid}"}, status=status.HTTP_400_BAD_REQUEST)
 
         staff.feature_grants.all().delete()
         for f in features:

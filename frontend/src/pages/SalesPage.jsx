@@ -70,16 +70,33 @@ function formatRupiah(n) {
 }
 
 function extractError(err) {
-  const data = err.response?.data
+  return flattenErrorData(err.response?.data)
+}
+
+function flattenErrorData(data) {
+  // DRF nested serializers (RecordSaleSerializer.items is a list of
+  // SaleItemInputSerializer) return errors as a list of per-item dicts,
+  // e.g. {"items": [{}, {"quantity": ["A valid integer is required."]}]}.
+  // The old version only unwrapped one level (`val[0]`), so a nested-item
+  // error surfaced as a raw object — setError(objectValue) then crashed
+  // the page when React tried to render it as a child ("Objects are not
+  // valid as a React child"). This walks down until it finds an actual
+  // string message.
   if (!data) return ''
   if (typeof data === 'string') return data
-  if (data.error) return data.error
-  const firstKey = Object.keys(data)[0]
-  if (firstKey) {
-    const val = data[firstKey]
-    return Array.isArray(val) ? val[0] : String(val)
+  if (Array.isArray(data)) {
+    for (const item of data) {
+      const msg = flattenErrorData(item)
+      if (msg) return msg
+    }
+    return ''
   }
-  return ''
+  if (typeof data === 'object') {
+    if (typeof data.error === 'string') return data.error
+    const firstKey = Object.keys(data)[0]
+    if (firstKey) return flattenErrorData(data[firstKey])
+  }
+  return String(data)
 }
 
 function confidenceTone(score) {
@@ -161,14 +178,14 @@ function HeroBanner({ metrics, onRecordSale, onGoToImport }) {
       <div className="relative flex flex-wrap items-center justify-between gap-6">
         <div className="min-w-0">
           <h1 className="text-[22px] sm:text-[24px] font-extrabold tracking-tight text-[#18233D]">
-            Sales Recording
+            Catat Penjualan
           </h1>
           <div className="flex flex-wrap gap-2 mt-3">
             <span className="text-xs font-semibold text-[#18233D] bg-white border border-[#E4E2DC] rounded-full px-3 py-1">
-              Sales Today: {metrics.todayCount}
+              Penjualan Hari Ini: {metrics.todayCount}
             </span>
             <span className="text-xs font-semibold text-[#18233D] bg-white border border-[#E4E2DC] rounded-full px-3 py-1">
-              Total Revenue: {formatRupiah(metrics.totalRevenue)}
+              Total Pendapatan: {formatRupiah(metrics.totalRevenue)}
             </span>
             <span className="text-xs font-semibold text-[#18233D] bg-white border border-[#E4E2DC] rounded-full px-3 py-1">
               Total Profit: {formatRupiah(metrics.totalProfit)}
@@ -176,10 +193,10 @@ function HeroBanner({ metrics, onRecordSale, onGoToImport }) {
           </div>
           <div className="flex flex-wrap gap-2.5 mt-5">
             <button onClick={onRecordSale} className={BTN_PRIMARY}>
-              <span className="inline-flex items-center gap-1.5"><IconPlus className="w-4 h-4" /> Record Sale</span>
+              <span className="inline-flex items-center gap-1.5"><IconPlus className="w-4 h-4" /> Catat Penjualan</span>
             </button>
             <button onClick={onGoToImport} className={`${BTN_SECONDARY} bg-white inline-flex items-center gap-1.5`}>
-              <IconUploadCloud className="w-4 h-4" /> Import from CSV
+              <IconUploadCloud className="w-4 h-4" /> Import dari CSV
             </button>
           </div>
         </div>
@@ -224,17 +241,17 @@ function RecordSaleModal({ menus, onClose, onSaved }) {
       await api.post('/sales/', { sale_date: saleDate, items })
       onSaved()
     } catch (err) {
-      setError(err.response?.data?.error || 'Gagal record sale. Cek stock ingredient cukup & recipe menu udah diisi.')
+      setError(extractError(err) || 'Gagal catat penjualan. Cek stock ingredient cukup & recipe menu udah diisi.')
     } finally {
       setSaving(false)
     }
   }
 
   return (
-    <Modal title="Record Sale" subtitle="Catat penjualan hari ini secara manual." onClose={onClose}>
+    <Modal title="Catat Penjualan" subtitle="Catat penjualan hari ini secara manual." onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         <div>
-          <label className={LABEL}>Sale date</label>
+          <label className={LABEL}>Tanggal penjualan</label>
           <input type="date" value={saleDate} onChange={(e) => setSaleDate(e.target.value)} className={INPUT} />
         </div>
 
@@ -257,7 +274,7 @@ function RecordSaleModal({ menus, onClose, onSaved }) {
                 className={`${INPUT} w-20`}
               />
               <button type="button" onClick={() => removeItem(i)} className="text-xs font-semibold shrink-0" style={{ color: '#B8433B' }}>
-                Remove
+                Hapus
               </button>
             </div>
           ))}
@@ -265,17 +282,17 @@ function RecordSaleModal({ menus, onClose, onSaved }) {
         </div>
 
         <button type="button" onClick={addItem} className={`text-sm font-semibold ${LINK_BRAND}`}>
-          + Add item
+          + Tambah item
         </button>
 
         {error && <p className={ERROR_BANNER}>{error}</p>}
 
         <div className="flex gap-3 pt-1">
           <button type="button" onClick={onClose} className={`flex-1 ${BTN_SECONDARY}`}>
-            Cancel
+            Batal
           </button>
           <button type="submit" disabled={saving} className={`flex-1 ${BTN_PRIMARY}`}>
-            {saving ? 'Saving…' : 'Record Sale'}
+            {saving ? 'Menyimpan…' : 'Catat Penjualan'}
           </button>
         </div>
       </form>
@@ -366,14 +383,20 @@ function CsvImportSection({ menus, onImported }) {
   }
 
   async function handleConfirmSales() {
-    const validRows = rows.filter((r) => r.menu_id && Number(r.quantity) > 0)
+    // Sale quantity is "servings sold", always a whole number — the
+    // input allows typing a decimal even with step=1 (step only affects
+    // the spinner buttons), and the backend's IntegerField rejects
+    // anything but a whole number, failing the ENTIRE batch with a
+    // generic error instead of pointing at the one bad row. Round here so
+    // a stray "2.5" can't silently sink the whole import.
+    const validRows = rows.filter((r) => r.menu_id && Math.round(Number(r.quantity)) > 0)
     if (validRows.length === 0) {
       setError('Gak ada baris valid buat direcord — pilih menu & pastiin qty > 0 di minimal 1 baris.')
       return
     }
     const aggregated = {}
     validRows.forEach((r) => {
-      aggregated[r.menu_id] = (aggregated[r.menu_id] || 0) + Number(r.quantity)
+      aggregated[r.menu_id] = (aggregated[r.menu_id] || 0) + Math.round(Number(r.quantity))
     })
     const items = Object.entries(aggregated).map(([menu_id, quantity]) => ({ menu_id, quantity }))
 
@@ -384,7 +407,7 @@ function CsvImportSection({ menus, onImported }) {
       reset()
       onImported()
     } catch (err) {
-      setError(err.response?.data?.error || 'Gagal record sales dari CSV.')
+      setError(extractError(err) || 'Gagal record sales dari CSV.')
     } finally {
       setSubmitting(false)
     }
@@ -414,13 +437,13 @@ function CsvImportSection({ menus, onImported }) {
             onChange={(e) => handleFile(e.target.files?.[0])}
           />
           <IconTable className="w-8 h-8 text-[#8B96A6] mx-auto mb-3" />
-          <p className="text-sm font-semibold text-[#18233D]">Drag &amp; drop your sales CSV here</p>
-          <p className="text-xs text-[#8B96A6] mt-1">or click to browse — menu name + qty columns, fuzzy-matched to your catalog</p>
+          <p className="text-sm font-semibold text-[#18233D]">Drag &amp; drop CSV penjualan kamu di sini</p>
+          <p className="text-xs text-[#8B96A6] mt-1">atau klik buat pilih file — kolom nama menu + qty, dicocokin otomatis ke katalog kamu</p>
         </div>
       )}
 
       {stage === 'detecting' && (
-        <p className="text-sm text-[#5B6B82] text-center py-10">Reading CSV…</p>
+        <p className="text-sm text-[#5B6B82] text-center py-10">Membaca CSV…</p>
       )}
 
       {stage === 'mapping' && (
@@ -431,23 +454,23 @@ function CsvImportSection({ menus, onImported }) {
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-[#18233D] truncate">{file?.name}</p>
-              <p className="text-xs text-[#8B96A6]">{headers.length} columns detected</p>
+              <p className="text-xs text-[#8B96A6]">{headers.length} kolom terdeteksi</p>
             </div>
             <button type="button" onClick={reset} className="text-xs font-semibold text-[#5B6B82] hover:text-[#18233D] transition-colors shrink-0">
-              Remove
+              Hapus
             </button>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={LABEL}>Menu name column</label>
+              <label className={LABEL}>Kolom nama menu</label>
               <select value={menuColumn} onChange={(e) => setMenuColumn(e.target.value)} className={INPUT}>
                 <option value="">— pilih kolom —</option>
                 {headers.map((h) => <option key={h} value={h}>{h}</option>)}
               </select>
             </div>
             <div>
-              <label className={LABEL}>Quantity column</label>
+              <label className={LABEL}>Kolom quantity</label>
               <select value={qtyColumn} onChange={(e) => setQtyColumn(e.target.value)} className={INPUT}>
                 <option value="">— pilih kolom —</option>
                 {headers.map((h) => <option key={h} value={h}>{h}</option>)}
@@ -475,40 +498,40 @@ function CsvImportSection({ menus, onImported }) {
           {error && <p className={ERROR_BANNER}>{error}</p>}
 
           <div className="flex gap-3">
-            <button type="button" onClick={reset} className={BTN_SECONDARY}>Cancel</button>
+            <button type="button" onClick={reset} className={BTN_SECONDARY}>Batal</button>
             <button
               type="button"
               onClick={handleConfirmColumns}
               disabled={!menuColumn || !qtyColumn}
               className={BTN_PRIMARY}
             >
-              Match against catalog
+              Cocokin ke katalog
             </button>
           </div>
         </div>
       )}
 
       {stage === 'matching' && (
-        <p className="text-sm text-[#5B6B82] text-center py-10">Matching against your menu catalog…</p>
+        <p className="text-sm text-[#5B6B82] text-center py-10">Mencocokkan ke katalog menu kamu…</p>
       )}
 
       {stage === 'review' && (
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-[#5B6B82]">
-              <span className="font-semibold text-[#18233D]">{matchedCount}</span> of {rows.length} rows matched to a menu.
-              Review and fix any that aren't before recording.
+              <span className="font-semibold text-[#18233D]">{matchedCount}</span> dari {rows.length} baris cocok ke sebuah menu.
+              Cek dan benerin yang belum cocok sebelum dicatat.
             </p>
-            <button type="button" onClick={reset} className={`text-xs font-semibold ${LINK_MUTED}`}>Start over</button>
+            <button type="button" onClick={reset} className={`text-xs font-semibold ${LINK_MUTED}`}>Mulai ulang</button>
           </div>
 
           <div className="rounded-lg border border-[#E4E2DC] overflow-hidden overflow-x-auto">
             <table className="w-full text-sm min-w-[560px]">
               <thead className="bg-[#F7F5F0] text-[#8B96A6] text-xs uppercase tracking-wide">
                 <tr>
-                  <th className="text-left px-3 py-2.5 font-bold">CSV name</th>
+                  <th className="text-left px-3 py-2.5 font-bold">Nama di CSV</th>
                   <th className="text-right px-3 py-2.5 font-bold">Qty</th>
-                  <th className="text-left px-3 py-2.5 font-bold">Matched menu</th>
+                  <th className="text-left px-3 py-2.5 font-bold">Menu tercocok</th>
                   <th className="text-left px-3 py-2.5 font-bold">Confidence</th>
                   <th className="text-left px-3 py-2.5"></th>
                 </tr>
@@ -519,7 +542,7 @@ function CsvImportSection({ menus, onImported }) {
                     <td className="px-3 py-2.5 text-[#18233D]">{row.csv_name}</td>
                     <td className="px-3 py-2.5">
                       <input
-                        type="number" step="0.001"
+                        type="number" step="1" min="1"
                         value={row.quantity}
                         onChange={(e) => updateRow(i, { quantity: e.target.value })}
                         className={`${INPUT} w-20 text-right`}
@@ -536,7 +559,7 @@ function CsvImportSection({ menus, onImported }) {
                       </select>
                       {!row.menu_id && row.candidates.length > 0 && (
                         <p className="text-xs text-[#8B96A6] mt-1">
-                          Did you mean:{' '}
+                          Mungkin maksud kamu:{' '}
                           {row.candidates.map((c, ci) => (
                             <button
                               key={c.id}
@@ -569,13 +592,13 @@ function CsvImportSection({ menus, onImported }) {
 
           <div className="flex flex-wrap items-end gap-3">
             <div>
-              <label className={LABEL}>Sale date</label>
+              <label className={LABEL}>Tanggal penjualan</label>
               <input type="date" value={saleDate} onChange={(e) => setSaleDate(e.target.value)} className={INPUT} />
             </div>
             <div className="flex gap-3 ml-auto">
-              <button type="button" onClick={reset} className={BTN_SECONDARY}>Cancel</button>
+              <button type="button" onClick={reset} className={BTN_SECONDARY}>Batal</button>
               <button type="button" onClick={handleConfirmSales} disabled={submitting} className={BTN_PRIMARY}>
-                {submitting ? 'Recording…' : `Confirm & Record ${matchedCount} Sale(s)`}
+                {submitting ? 'Mencatat…' : `Konfirmasi & Catat ${matchedCount} Penjualan`}
               </button>
             </div>
           </div>
@@ -665,10 +688,10 @@ export default function SalesPage() {
 
       {/* Import from CSV */}
       <section ref={importSectionRef} className="mb-8">
-        <h2 className="text-[13px] font-bold text-[#18233D] uppercase tracking-wide mb-3">Import from CSV</h2>
+        <h2 className="text-[13px] font-bold text-[#18233D] uppercase tracking-wide mb-3">Import dari CSV</h2>
         <CsvImportSection
           menus={menus.filter((m) => m.is_active)}
-          onImported={() => { showSuccessToast('Sales berhasil direcord dari CSV.'); fetchAll(dateFilter) }}
+          onImported={() => { showSuccessToast('Sales berhasil dicatat dari CSV.'); fetchAll(dateFilter) }}
         />
       </section>
 
@@ -677,8 +700,8 @@ export default function SalesPage() {
         <div className={`bg-white rounded-2xl ${SHADOW_CARD} overflow-hidden`}>
           <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-[#E4E2DC]">
             <h2 className="text-[15px] font-bold text-[#18233D]">
-              Recent Sales
-              <span className="ml-2 text-xs font-medium text-[#8B96A6]">{sales.length} record(s)</span>
+              Penjualan Terbaru
+              <span className="ml-2 text-xs font-medium text-[#8B96A6]">{sales.length} riwayat</span>
             </h2>
             <div className="flex items-center gap-2">
               <input
@@ -693,14 +716,14 @@ export default function SalesPage() {
                   onClick={() => { setDateFilter(''); fetchAll() }}
                   className={`text-xs font-semibold ${LINK_MUTED}`}
                 >
-                  Clear
+                  Bersihkan
                 </button>
               )}
             </div>
           </div>
 
           {loading ? (
-            <p className="text-sm text-[#5B6B82] px-5 py-10 text-center">Loading...</p>
+            <p className="text-sm text-[#5B6B82] px-5 py-10 text-center">Memuat...</p>
           ) : sales.length === 0 ? (
             <div className="py-16 text-center">
               <p className="text-[#5B6B82]">Belum ada sale tercatat.</p>
@@ -718,7 +741,7 @@ export default function SalesPage() {
                         <p className="text-sm font-semibold text-[#18233D]">{sale.sale_date}</p>
                       </div>
                       <div className="flex items-center gap-4 text-xs">
-                        <span className="text-[#5B6B82]">Revenue <span className="font-semibold text-[#18233D] tabular-nums">{formatRupiah(revenue)}</span></span>
+                        <span className="text-[#5B6B82]">Pendapatan <span className="font-semibold text-[#18233D] tabular-nums">{formatRupiah(revenue)}</span></span>
                         <span className="text-[#5B6B82]">Profit <span className="font-semibold text-[#2E7D53] tabular-nums">{formatRupiah(profit)}</span></span>
                         <button
                           type="button"

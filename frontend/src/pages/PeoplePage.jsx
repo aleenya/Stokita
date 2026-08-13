@@ -12,10 +12,10 @@ const BTN_SECONDARY =
   'text-xs font-semibold text-[#5B6B82] border border-[#E4E2DC] rounded-full px-3 py-1.5 hover:bg-[#F7F5F0] transition-colors disabled:opacity-50'
 
 const FEATURES = [
-  { code: 'ingredients_manage', label: 'Manage Ingredients' },
-  { code: 'menus_manage', label: 'Manage Menus' },
-  { code: 'profit_analytics', label: 'Profit Analytics' },
-  { code: 'brief', label: 'Daily Brief' },
+  { code: 'ingredients_manage', label: 'Kelola Bahan' },
+  { code: 'menus_manage', label: 'Kelola Menu' },
+  { code: 'profit_analytics', label: 'Analitik Profit' },
+  { code: 'brief', label: 'Brief Harian' },
 ]
 
 export default function PeoplePage() {
@@ -103,7 +103,7 @@ export default function PeoplePage() {
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-[22px] font-extrabold tracking-tight text-[#18233D] mb-1">People</h1>
+      <h1 className="text-[22px] font-extrabold tracking-tight text-[#18233D] mb-1">Staff</h1>
       <p className="text-sm text-[#5B6B82] mb-6">
         Kasih akses tambahan ke staff tertentu yang kamu percaya — di luar akses default staff.
       </p>
@@ -128,7 +128,7 @@ export default function PeoplePage() {
       {error && <p className="text-sm text-[#B8433B] mb-4">{error}</p>}
 
       {loading ? (
-        <p className="text-sm text-[#5B6B82]">Loading...</p>
+        <p className="text-sm text-[#5B6B82]">Memuat...</p>
       ) : staff.length === 0 ? (
         <p className="text-sm text-[#5B6B82]">Belum ada staff di business ini.</p>
       ) : (
@@ -160,7 +160,7 @@ export default function PeoplePage() {
                   {togglingStatus === s.id
                     ? '...'
                     : s.is_active === false
-                      ? (s.last_login ? 'Aktifkan' : 'Approve')
+                      ? (s.last_login ? 'Aktifkan' : 'Setujui')
                       : 'Nonaktifkan'}
                 </button>
               </div>
@@ -184,7 +184,7 @@ export default function PeoplePage() {
                 disabled={saving === s.id}
                 className={BTN_PRIMARY}
               >
-                {saving === s.id ? 'Saving...' : 'Save Access'}
+                {saving === s.id ? 'Menyimpan...' : 'Simpan Akses'}
               </button>
             </div>
           ))}
