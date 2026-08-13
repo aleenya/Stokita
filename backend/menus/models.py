@@ -1,6 +1,6 @@
 import uuid
 from decimal import Decimal
-from django.core.validators import MinValueValidator
+from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from accounts.models import Business
 from inventory.models import Ingredient
@@ -19,25 +19,18 @@ class Menu(models.Model):
     )  # %
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    active_discount_pct = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    active_discount_pct = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+    )
     active_discount_ingredient = models.ForeignKey(Ingredient, on_delete=models.SET_NULL, null=True, blank=True)
     active_discount_expiry_date = models.DateField(null=True, blank=True)  # snapshot expiry batch pemicu diskon
-    manual_discount_pct = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    manual_discount_pct = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+    )
     manual_discount_until = models.DateField(null=True, blank=True)  # null = gak ada batas waktu, manual off sendiri
-    def get_effective_discount_pct(self):
-        # manual (dari owner) menang duluan kalau ada & masih aktif
-        if self.manual_discount_pct:
-            expired = self.manual_discount_until and self.manual_discount_until < date.today()
-            if not expired:
-                return self.manual_discount_pct
-        # fallback ke diskon dari AI brief (ingredient-triggered)
-        if self.active_discount_pct and self.active_discount_ingredient_id:
-            ing = self.active_discount_ingredient
-            expired = self.active_discount_expiry_date and self.active_discount_expiry_date < date.today()
-            if ing.current_stock > 0 and not expired:
-                return self.active_discount_pct
-        return None
-    
+
     class Meta:
         db_table = "menus"
 
@@ -60,9 +53,19 @@ class Menu(models.Model):
         return self.name
 
     def get_effective_discount_pct(self):
-        """Diskon dianggap aktif HANYA kalau ingredient pemicu masih ada
-        stok & belum lewat expiry — dicek live, gak ngandelin field
-        tersimpan yang bisa basi."""
+        """Diskon dianggap aktif HANYA kalau kondisinya beneran masih
+        valid, dicek live gak ngandelin field tersimpan yang bisa basi.
+        Manual (dari owner) menang duluan kalau masih aktif — sebelumnya
+        ada DUA definisi method ini di class ini, yang kedua diam-diam
+        nimpa yang pertama (Python method override), jadi cabang manual
+        di bawah ini gak pernah kepanggil sama sekali: diskon manual
+        keliatan "aktif" di UI tapi record_sale() tetap motong harga
+        penuh. Sekarang cuma ada satu definisi yang bener-bener ngecek
+        keduanya."""
+        if self.manual_discount_pct:
+            expired = self.manual_discount_until and self.manual_discount_until < date.today()
+            if not expired:
+                return self.manual_discount_pct
         if self.active_discount_pct and self.active_discount_ingredient_id:
             ing = self.active_discount_ingredient
             expired = self.active_discount_expiry_date and self.active_discount_expiry_date < date.today()

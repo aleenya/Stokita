@@ -92,8 +92,22 @@ function formatRupiah(n) {
 function marginPct(menu) {
   const price = Number(menu.sell_price) || 0
   const cost = Number(menu.unit_cost) || 0
+  // No recipe, or cost <= 0 (unpriced ingredients / corrupted data) means
+  // there's no reliable cost to base a margin on — returning a fake 100%
+  // here would make an unknown-cost menu look like the healthiest one on
+  // the page. Let the caller show why instead of a number.
   if (price <= 0) return null
+  if (menu.recipe_lines.length === 0) return null
+  if (cost <= 0) return null
   return ((price - cost) / price) * 100
+}
+
+function marginIssueLabel(menu) {
+  const cost = Number(menu.unit_cost) || 0
+  if (cost < 0) return 'Invalid cost data'
+  if (menu.recipe_lines.length === 0) return 'No recipe yet'
+  if (cost === 0) return 'Ingredient cost not set'
+  return null
 }
 
 function StatusBadge({ tone, label }) {
@@ -543,7 +557,9 @@ function DiscountModal({ menu, onClose, onSaved }) {
 
 function RowActionMenu({ isActive, hasDiscount, onEdit, onDiscount, onToggleActive, onDelete, deleting }) {
   const [open, setOpen] = useState(false)
+  const [openUpward, setOpenUpward] = useState(false)
   const ref = useRef(null)
+  const btnRef = useRef(null)
 
   useEffect(() => {
     if (!open) return
@@ -554,11 +570,23 @@ function RowActionMenu({ isActive, hasDiscount, onEdit, onDiscount, onToggleActi
     return () => document.removeEventListener('mousedown', onClick)
   }, [open])
 
+  function handleToggle() {
+    if (!open && btnRef.current) {
+      // Menu is ~150px tall (3 items + padding) — if there isn't room
+      // below the button on screen, grow it upward instead so it stays
+      // fully visible for rows near the bottom of the table.
+      const rect = btnRef.current.getBoundingClientRect()
+      setOpenUpward(window.innerHeight - rect.bottom < 160)
+    }
+    setOpen((v) => !v)
+  }
+
   return (
     <div className="relative inline-block" ref={ref}>
       <button
+        ref={btnRef}
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={handleToggle}
         aria-label="More actions"
         aria-expanded={open}
         className="w-7 h-7 flex items-center justify-center rounded-full text-[#8B96A6] hover:bg-[#F7F5F0] hover:text-[#18233D] transition-colors"
@@ -566,7 +594,7 @@ function RowActionMenu({ isActive, hasDiscount, onEdit, onDiscount, onToggleActi
         <IconMoreVertical />
       </button>
       {open && (
-        <div className={`absolute right-0 top-8 z-10 w-44 rounded-lg bg-white border border-[#E4E2DC] ${SHADOW_FLOAT} py-1`}>
+        <div className={`absolute right-0 ${openUpward ? 'bottom-8' : 'top-8'} z-10 w-44 rounded-lg bg-white border border-[#E4E2DC] ${SHADOW_FLOAT} py-1`}>
           <button
             type="button"
             onClick={() => { setOpen(false); onEdit() }}
@@ -830,14 +858,25 @@ export default function MenusPage({ onLogout }) {
                           `Rp ${formatRupiah(menu.sell_price)}`
                         )}
                       </td>
-                      <td className="px-5 py-3 text-right tabular-nums text-[#5B6B82]">Rp {formatRupiah(menu.unit_cost)}</td>
+                      <td className={`px-5 py-3 text-right tabular-nums ${Number(menu.unit_cost) < 0 ? 'font-semibold text-[#B8433B]' : 'text-[#5B6B82]'}`}>
+                        Rp {formatRupiah(menu.unit_cost)}
+                      </td>
                       <td className="px-5 py-3 text-right tabular-nums">
-                        <span className="inline-flex items-center gap-1">
-                          {belowTarget && <IconAlertTriangle className="w-3.5 h-3.5 text-[#B8433B]" />}
-                          <span className={belowTarget ? 'font-semibold text-[#B8433B]' : 'text-[#2E7D53]'}>
-                            {margin === null ? '—' : `${margin.toFixed(1)}%`}
+                        {margin === null ? (
+                          <span className="inline-flex items-center gap-1">
+                            {Number(menu.unit_cost) < 0 && <IconAlertTriangle className="w-3.5 h-3.5 text-[#B8433B]" />}
+                            <span className={`text-xs font-medium ${Number(menu.unit_cost) < 0 ? 'text-[#B8433B]' : 'text-[#8B96A6]'}`}>
+                              {marginIssueLabel(menu)}
+                            </span>
                           </span>
-                        </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1">
+                            {belowTarget && <IconAlertTriangle className="w-3.5 h-3.5 text-[#B8433B]" />}
+                            <span className={belowTarget ? 'font-semibold text-[#B8433B]' : 'text-[#2E7D53]'}>
+                              {margin.toFixed(1)}%
+                            </span>
+                          </span>
+                        )}
                         <span className="block text-xs text-[#8B96A6]">target {Number(menu.target_margin)}%</span>
                       </td>
                       <td className="px-5 py-3">

@@ -18,7 +18,15 @@ def apply_restock(ingredient, qty, total_cost=None, expiry_date=None, user=None)
 
         if total_cost and total_cost > 0:
             nilai_lama = ingredient.current_stock * ingredient.cost_per_unit
-            ingredient.cost_per_unit = (nilai_lama + total_cost) / (ingredient.current_stock + qty)
+            # max(..., 0): this recomputes cost_per_unit via a raw .save()
+            # below, which bypasses the model's MinValueValidator(0) — the
+            # math can't currently go negative given validated inputs, but
+            # this floor is cheap insurance against a future bug (or
+            # already-corrupted current_stock/cost_per_unit) propagating
+            # into a negative cost that then silently breaks margin display.
+            ingredient.cost_per_unit = max(
+                (nilai_lama + total_cost) / (ingredient.current_stock + qty), Decimal("0")
+            )
 
         ingredient.current_stock += qty
         ingredient.save(update_fields=["current_stock", "cost_per_unit"])
