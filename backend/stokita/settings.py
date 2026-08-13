@@ -160,6 +160,8 @@ AUTH_COOKIE_SAMESITE = "None" if not DEBUG else "Lax"
 # requests — browsers reject "*" + credentials. Needs an explicit list.
 CORS_ALLOWED_ORIGINS = [
     o.strip() for o in config("CORS_ALLOWED_ORIGINS", default="http://localhost:5173").split(",") if o.strip()
+] + [
+    "https://www.stokita.app"
 ]
 CORS_ALLOW_CREDENTIALS = True
 
