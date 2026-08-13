@@ -1,3 +1,4 @@
+import re
 import secrets
 import string
 
@@ -5,6 +6,7 @@ from django.contrib.auth import get_user_model
 from django.utils.text import slugify
 from rest_framework import serializers
 
+from .google_auth import verify_google_token
 from .models import Business, User
 
 UserModel = get_user_model()
@@ -18,6 +20,17 @@ def _random_business_slug(base):
     business name — it's shared like an invite code, not a public handle."""
     suffix = "".join(secrets.choice(_SLUG_ALPHABET) for _ in range(_SLUG_SUFFIX_LEN))
     return f"{base}-{suffix}"
+
+
+def _generate_username(seed):
+    """Turn a Google email/name into a free username — register-via-Google
+    doesn't collect one from the user, so we make one up and dedupe it."""
+    base = re.sub(r"[^a-z0-9]", "", (seed or "user").lower())[:20] or "user"
+    for _ in range(5):
+        candidate = base + "".join(secrets.choice(_SLUG_ALPHABET) for _ in range(4))
+        if not UserModel.objects.filter(username=candidate).exists():
+            return candidate
+    raise serializers.ValidationError({"username": "Gagal generate username, coba lagi."})
 
 
 class BusinessSerializer(serializers.ModelSerializer):
@@ -70,8 +83,14 @@ class RegisterSerializer(serializers.Serializer):
     ROLE_CHOICES = (("owner", "Owner"), ("staff", "Staff"))
 
     role = serializers.ChoiceField(choices=ROLE_CHOICES)
-    username = serializers.CharField(max_length=150)  # login username si user
-    password = serializers.CharField(write_only=True, min_length=6)
+    # username/password: required for the normal path, unused for the
+    # Google path (username gets generated, password gets set unusable).
+    username = serializers.CharField(max_length=150, required=False, allow_blank=True)
+    password = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    # Register-via-Google: an ID token from GoogleSignInButton. Role +
+    # business still have to be picked normally — Google only supplies
+    # identity, not "which business is this."
+    google_credential = serializers.CharField(required=False, allow_blank=True, write_only=True)
     full_name = serializers.CharField(required=False, allow_blank=True, max_length=150)
 
     # Dipake kalau role == owner
@@ -81,13 +100,40 @@ class RegisterSerializer(serializers.Serializer):
     # - staff: kode business yang mau di-join (wajib)
     business_username = serializers.CharField(required=False, allow_blank=True, max_length=50)
 
-    def validate_username(self, value):
-        if UserModel.objects.filter(username=value).exists():
-            raise serializers.ValidationError("Username ini sudah dipakai, coba yang lain.")
-        return value
-
     def validate(self, data):
         role = data.get("role")
+        google_credential = data.get("google_credential")
+
+        if google_credential:
+            try:
+                info = verify_google_token(google_credential)
+            except ValueError:
+                raise serializers.ValidationError({"google_credential": "Token Google gak valid."})
+            if User.objects.filter(google_sub=info["sub"]).exists():
+                raise serializers.ValidationError(
+                    {"google_credential": "Akun Google ini udah terdaftar. Coba login."}
+                )
+            data["_google_info"] = info
+
+            username = data.get("username", "").strip()
+            if username:
+                if UserModel.objects.filter(username=username).exists():
+                    raise serializers.ValidationError({"username": "Username ini sudah dipakai, coba yang lain."})
+                data["username"] = username
+            else:
+                seed = (info.get("email") or "").split("@")[0] or info.get("name") or "user"
+                data["username"] = _generate_username(seed)
+            if not data.get("full_name") and info.get("name"):
+                data["full_name"] = info["name"]
+        else:
+            username = data.get("username", "").strip()
+            if not username:
+                raise serializers.ValidationError({"username": "Username wajib diisi."})
+            if UserModel.objects.filter(username=username).exists():
+                raise serializers.ValidationError({"username": "Username ini sudah dipakai, coba yang lain."})
+            data["username"] = username
+            if not data.get("password") or len(data["password"]) < 6:
+                raise serializers.ValidationError({"password": "Password minimal 6 karakter."})
 
         if role == "owner":
             business_name = data.get("business_name", "").strip()
@@ -135,8 +181,8 @@ class RegisterSerializer(serializers.Serializer):
     def create(self, validated_data):
         role = validated_data["role"]
         username = validated_data["username"]
-        password = validated_data["password"]
         full_name = validated_data.get("full_name", "").strip()
+        google_info = validated_data.get("_google_info")
 
         if role == "owner":
             business = Business.objects.create(
@@ -153,7 +199,17 @@ class RegisterSerializer(serializers.Serializer):
             # Staff self-registers with just the business join code — require
             # owner approval (via PeoplePage "Aktifkan") before they get access.
             user.is_active = False
-        user.set_password(password)
+
+        if google_info:
+            user.google_sub = google_info["sub"]
+            if google_info.get("email"):
+                user.email = google_info["email"]
+            # No password was ever collected — this account only ever signs
+            # in via Google. Django supports this natively (this isn't a
+            # blank/guessable password, authenticate() always rejects it).
+            user.set_unusable_password()
+        else:
+            user.set_password(validated_data["password"])
         user.save()
 
         return user

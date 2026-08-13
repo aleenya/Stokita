@@ -1,5 +1,16 @@
 import { useState } from 'react'
 import api from '../api/client'
+import GoogleSignInButton from '../components/GoogleSignInButton'
+
+// Cuma buat nampilin email-nya di UI — verifikasi asli tetep di backend,
+// ini gak dipakai buat keputusan keamanan apa pun.
+function decodeGoogleEmail(credential) {
+  try {
+    return JSON.parse(atob(credential.split('.')[1])).email || ''
+  } catch {
+    return ''
+  }
+}
 
 /* =========================================================================
    DESIGN TOKENS — sama persis dengan Dashboard.jsx / Sidebar.jsx / IngredientsPage.jsx
@@ -50,6 +61,14 @@ export default function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [pendingApproval, setPendingApproval] = useState(false)
+  const [googleCredential, setGoogleCredential] = useState(null)
+  const [googleEmail, setGoogleEmail] = useState('')
+
+  function handleGoogleCredential(credential) {
+    setGoogleCredential(credential)
+    setGoogleEmail(decodeGoogleEmail(credential))
+    setError('')
+  }
 
   function handleBusinessNameChange(value) {
     setBusinessName(value)
@@ -69,7 +88,7 @@ export default function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
     e.preventDefault()
     setError('')
 
-    if (!username || !password) {
+    if (!googleCredential && (!username || !password)) {
       setError('Username dan password wajib diisi.')
       return
     }
@@ -86,9 +105,8 @@ export default function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
     try {
       const payload = {
         role,
-        username,
-        password,
         full_name: fullName,
+        ...(googleCredential ? { google_credential: googleCredential } : { username, password }),
         ...(role === 'owner'
           ? { business_name: businessName, business_username: businessSlug }
           : { business_username: staffCode }),
@@ -190,6 +208,31 @@ export default function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
           ))}
         </div>
 
+        {googleCredential ? (
+          <div className="flex items-center justify-between gap-3 bg-white border border-[#E4E2DC] rounded-md px-4 py-2.5 mb-4">
+            <p className="text-sm text-[#18233D] truncate">
+              <span className="text-[#2E7D53] font-semibold">✓ Google</span>{' '}
+              {googleEmail || 'account selected'}
+            </p>
+            <button
+              type="button"
+              onClick={() => { setGoogleCredential(null); setGoogleEmail('') }}
+              className="text-xs font-semibold text-[#5B6B82] hover:text-[#18233D] transition-colors shrink-0"
+            >
+              Change
+            </button>
+          </div>
+        ) : (
+          <>
+            <GoogleSignInButton label="Sign up with Google" onCredential={handleGoogleCredential} />
+            <div className="flex items-center gap-3 my-5">
+              <div className="h-px flex-1 bg-[#E4E2DC]" />
+              <span className="text-xs text-[#8B96A6]">or</span>
+              <div className="h-px flex-1 bg-[#E4E2DC]" />
+            </div>
+          </>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           <div>
             <label className={LABEL}>Full name</label>
@@ -202,7 +245,7 @@ export default function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          {!googleCredential && <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={LABEL}>Username</label>
               <input
@@ -223,7 +266,7 @@ export default function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
                 placeholder="••••••••"
               />
             </div>
-          </div>
+          </div>}
 
           {role === 'owner' ? (
             <>

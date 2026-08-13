@@ -167,15 +167,26 @@ CORS_ALLOW_CREDENTIALS = True
 
 # Cross-origin POST/PUT/PATCH/DELETE from the SPA needs the frontend origin
 # explicitly trusted, on top of CORS (this is Django's own CSRF check, not
-# DRF's — see CookieJWTAuthentication.enforce_csrf).
+# DRF's — see CookieJWTAuthentication.enforce_csrf). Same shape as
+# CORS_ALLOWED_ORIGINS above (dev origin + production domain) — kept as ONE
+# definition, not redefined again further down, so local dev and production
+# both stay trusted instead of one silently overwriting the other.
 CSRF_TRUSTED_ORIGINS = [
     o.strip() for o in config("CSRF_TRUSTED_ORIGINS", default="http://localhost:5173").split(",") if o.strip()
+] + [
+    "https://www.stokita.app"
 ]
 CSRF_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SAMESITE = AUTH_COOKIE_SAMESITE
 # Must stay readable by JS — axios reads this cookie and echoes it back as
 # the X-CSRFToken header on unsafe requests (Django's double-submit check).
 CSRF_COOKIE_HTTPONLY = False
+
+# Django admin's login is the only thing here still using session auth (the
+# API itself uses CookieJWTAuthentication, not sessions) — same dev/prod
+# split, or /admin/ becomes unreachable locally over plain http://.
+SESSION_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SAMESITE = AUTH_COOKIE_SAMESITE
 
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
@@ -197,15 +208,4 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
  
 GEMINI_API_KEY = config("GEMINI_API_KEY", default="")
-
-SESSION_COOKIE_SAMESITE = 'None'
-SESSION_COOKIE_SECURE = True
-
-CSRF_COOKIE_SAMESITE = 'None'
-CSRF_COOKIE_SECURE = True
-CSRF_TRUSTED_ORIGINS = [
-    "https://www.stokita.app",
-]
-
-JWT_AUTH_SAMESITE = 'None'
-JWT_AUTH_SECURE = True
+GOOGLE_CLIENT_ID = config("GOOGLE_CLIENT_ID", default="")

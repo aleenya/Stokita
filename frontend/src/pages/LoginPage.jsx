@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import api from '../api/client'
+import GoogleSignInButton from '../components/GoogleSignInButton'
 
 /* =========================================================================
    DESIGN TOKENS — sama persis dengan Dashboard.jsx / Sidebar.jsx / IngredientsPage.jsx
@@ -129,6 +130,19 @@ export default function LoginPage({ onLoginSuccess, onSwitchToRegister }) {
     }
   }
 
+  async function handleGoogleCredential(credential) {
+    setError('')
+    setLoading(true)
+    try {
+      await api.post('/auth/google/login/', { credential })
+      onLoginSuccess?.()
+    } catch (err) {
+      setError(err.response?.data?.error || 'Gagal sign in pakai Google.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div
       className="min-h-screen flex flex-col md:flex-row antialiased"
@@ -219,6 +233,14 @@ export default function LoginPage({ onLoginSuccess, onSwitchToRegister }) {
               {loading ? 'Signing in…' : 'Sign in'}
             </button>
           </form>
+
+          <div className="flex items-center gap-3 my-6">
+            <div className="h-px flex-1 bg-[#E4E2DC]" />
+            <span className="text-xs text-[#8B96A6]">atau</span>
+            <div className="h-px flex-1 bg-[#E4E2DC]" />
+          </div>
+
+          <GoogleSignInButton onCredential={handleGoogleCredential} disabled={loading} />
 
           <p className="mt-8 text-sm text-[#5B6B82] text-center">
             Don't have an account?{' '}
