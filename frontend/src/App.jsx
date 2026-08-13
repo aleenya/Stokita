@@ -9,6 +9,7 @@ import ProfitPage from './pages/ProfitPage'
 import PeoplePage from './pages/PeoplePage'
 import Dashboard from './pages/Dashboard'
 import Sidebar, { MobileTopbar, pageLabel } from './components/Sidebar'
+import ChatWidget from './components/ChatWidget'
 
 function App() {
   // Auth now lives in httpOnly cookies the browser sends automatically —
@@ -109,9 +110,6 @@ function App() {
         userName={me?.full_name || me?.username || 'User'}
         userRole={me?.role || 'staff'}
         onLogout={handleLogout}
-        onAskStokita={() => {
-          /* TODO: buka panel Ask Stokita */
-        }}
         mobileOpen={sidebarOpen}
         onMobileClose={() => setSidebarOpen(false)}
       />
@@ -127,6 +125,8 @@ function App() {
           {page === 'people' && isOwner && <PeoplePage onLogout={handleLogout} />}
         </div>
       </main>
+
+      <ChatWidget />
     </div>
   )
 }
