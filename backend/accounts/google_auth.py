@@ -8,13 +8,20 @@ from django.conf import settings
 
 def verify_google_token(credential):
     """Returns {'sub': str, 'email': str|None, 'name': str|None}.
-    Raises ValueError if the token is missing, expired, or wasn't issued
-    for this app's GOOGLE_CLIENT_ID."""
+    Raises ValueError for any failure — bad/expired/wrong-audience token,
+    or a network hiccup fetching Google's public certs (that one surfaces
+    as google.auth.exceptions.TransportError, not a ValueError, from the
+    library itself). Normalized to one type here so every caller only
+    needs one except clause instead of each guessing which exception
+    types verify_oauth2_token can raise."""
     if not settings.GOOGLE_CLIENT_ID:
         raise ValueError("GOOGLE_CLIENT_ID belum diset.")
-    idinfo = id_token.verify_oauth2_token(
-        credential, google_requests.Request(), settings.GOOGLE_CLIENT_ID
-    )
+    try:
+        idinfo = id_token.verify_oauth2_token(
+            credential, google_requests.Request(), settings.GOOGLE_CLIENT_ID
+        )
+    except Exception as e:
+        raise ValueError(str(e)) from e
     return {
         "sub": idinfo["sub"],
         "email": idinfo.get("email"),

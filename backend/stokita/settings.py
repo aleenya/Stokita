@@ -208,4 +208,5 @@ STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 GEMINI_API_KEY = config("GEMINI_API_KEY", default="")
+GOOGLE_CLIENT_ID = config("GOOGLE_CLIENT_ID", default="")
 
