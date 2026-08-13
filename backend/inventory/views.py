@@ -1,15 +1,16 @@
 from decimal import Decimal, InvalidOperation
 from django.db import transaction
-from django.db.models import ProtectedError
+from django.db.models import ProtectedError, Sum
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
 from .models import Ingredient, StockMovement
-from .serializers import IngredientSerializer
+from .serializers import IngredientSerializer, StockMovementSerializer
 from .services import apply_restock, apply_waste
 from datetime import date, timedelta
 from .ai import estimate_shelf_life, parse_receipt
+from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated
 from accounts.permissions import IsOwner
 from accounts.permissions import feature_required
@@ -224,4 +225,121 @@ class IngredientViewSet(viewsets.ModelViewSet):
         return Response(
             {"restocked_ingredient_ids": restocked, "skipped": skipped},
             status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=False, methods=["get"])
+    def expiring(self, request):
+        """F1: ingredients with a stocked-in batch expiring within `days`
+        (default 3). One row per ingredient — the soonest-expiring batch —
+        same distinct/filter logic as briefs/services.py's pricing context
+        (skip already-passed dates and ingredients with zero stock left)."""
+        business = request.user.business
+        try:
+            days = int(request.query_params.get("days", 3))
+        except ValueError:
+            days = 3
+        today = timezone.localdate()
+        soon = today + timedelta(days=days)
+
+        movements = (
+            StockMovement.objects
+            .filter(
+                ingredient__business=business,
+                movement_type=StockMovement.RESTOCK,
+                expiry_date__gte=today,
+                expiry_date__lte=soon,
+                ingredient__current_stock__gt=0,
+            )
+            .select_related("ingredient")
+            .order_by("ingredient_id", "expiry_date")
+            .distinct("ingredient_id")
+        )
+
+        results = [{
+            "id": str(m.ingredient.id),
+            "name": m.ingredient.name,
+            "unit": m.ingredient.unit,
+            "current_stock": m.ingredient.current_stock,
+            "expiry_date": m.expiry_date.isoformat(),
+            "days_left": (m.expiry_date - today).days,
+        } for m in movements]
+        results.sort(key=lambda r: r["days_left"])
+        return Response(results)
+
+    @action(detail=False, methods=["get"], url_path="restock-recommendations")
+    def restock_recommendations(self, request):
+        """F1: data-driven suggested restock qty for low/out-of-stock
+        ingredients. Average daily usage comes from real sale_deduction
+        history (default 30-day lookback), projected forward to a target
+        buffer (default 7 days), minus current stock. Deterministic, no
+        AI call — team's own call per briefs/ai.py's stance on keeping
+        stock-quantity arithmetic out of the LLM's hands."""
+        business = request.user.business
+        try:
+            lookback_days = int(request.query_params.get("lookback_days", 30))
+        except ValueError:
+            lookback_days = 30
+        try:
+            target_days = int(request.query_params.get("target_days", 7))
+        except ValueError:
+            target_days = 7
+
+        since = timezone.now() - timedelta(days=lookback_days)
+        usage_rows = (
+            StockMovement.objects
+            .filter(
+                ingredient__business=business,
+                movement_type=StockMovement.SALE_DEDUCTION,
+                created_at__gte=since,
+            )
+            .values("ingredient_id")
+            .annotate(total_used=Sum("change_qty"))
+        )
+        # change_qty is negative for deductions — flip to a positive "used" amount
+        usage_by_ingredient = {row["ingredient_id"]: abs(row["total_used"]) for row in usage_rows}
+
+        results = []
+        for ing in Ingredient.objects.filter(business=business):
+            threshold = ing.low_stock_threshold
+            is_low = threshold is not None and ing.current_stock <= threshold
+            is_out = ing.current_stock <= 0
+            if not (is_low or is_out):
+                continue
+
+            total_used = usage_by_ingredient.get(ing.id)
+            avg_daily_usage = (total_used / lookback_days) if total_used else None
+            suggested_qty = None
+            if avg_daily_usage:
+                projected_need = avg_daily_usage * target_days
+                suggested_qty = max(Decimal("0"), projected_need - ing.current_stock)
+
+            results.append({
+                "id": str(ing.id),
+                "name": ing.name,
+                "unit": ing.unit,
+                "current_stock": ing.current_stock,
+                "avg_daily_usage": round(avg_daily_usage, 3) if avg_daily_usage else None,
+                "suggested_qty": round(suggested_qty, 3) if suggested_qty is not None else None,
+                "target_days": target_days,
+                "lookback_days": lookback_days,
+            })
+
+        # most urgent (highest suggested qty) first; no-data rows sink to the bottom
+        results.sort(key=lambda r: (r["suggested_qty"] is None, -(r["suggested_qty"] or 0)))
+        return Response(results)
+
+
+class StockMovementViewSet(viewsets.ReadOnlyModelViewSet):
+    """F1: audit trail of every stock change (restock, waste/adjustment,
+    sale deduction) — read-only, scoped to the caller's business via the
+    ingredient FK since StockMovement has no business field of its own."""
+    serializer_class = StockMovementSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return (
+            StockMovement.objects
+            .filter(ingredient__business=self.request.user.business)
+            .select_related("ingredient", "created_by")
+            .order_by("-created_at")
         )
