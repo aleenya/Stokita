@@ -217,9 +217,8 @@ function Trend({ pct, tooltip }) {
   return (
     <span
       title={tooltip}
-      className={`inline-flex items-center gap-0.5 text-xs font-semibold ${
-        up ? TONE_BADGE.success : TONE_BADGE.critical
-      } rounded px-1.5 py-0.5 cursor-help`}
+      className={`inline-flex items-center gap-0.5 text-xs font-semibold ${up ? TONE_BADGE.success : TONE_BADGE.critical
+        } rounded px-1.5 py-0.5 cursor-help`}
     >
       <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
         {up ? <path d="M12 4l8 10h-6v6h-4v-6H4z" /> : <path d="M12 20 4 10h6V4h4v6h6z" />}
@@ -332,9 +331,8 @@ function PriorityRow({ p, onToggle, onDismiss }) {
         aria-checked={p.completed}
         aria-label={`Tandai ${p.title} sebagai selesai`}
         onClick={() => onToggle(p.id)}
-        className={`w-5 h-5 rounded-full border-2 shrink-0 transition-colors flex items-center justify-center ${
-          p.completed ? 'bg-[#2E7D53] border-[#2E7D53]' : 'border-[#CBD1DB] hover:border-[#28579C]'
-        }`}
+        className={`w-5 h-5 rounded-full border-2 shrink-0 transition-colors flex items-center justify-center ${p.completed ? 'bg-[#2E7D53] border-[#2E7D53]' : 'border-[#CBD1DB] hover:border-[#28579C]'
+          }`}
       >
         {p.completed && (
           <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
