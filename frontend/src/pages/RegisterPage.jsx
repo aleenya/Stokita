@@ -149,15 +149,15 @@ export default function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
           </div>
 
           <h1 className="text-2xl font-extrabold tracking-tight text-[#18233D] mb-3">
-            Account created
+            Akun berhasil dibuat
           </h1>
           <p className="text-sm text-[#5B6B82] mb-8">
-            Your account is waiting for your business owner to activate it under People.
-            You'll be able to sign in once they do.
+            Akun kamu masih nunggu diaktifkan sama pemilik business di halaman Staff.
+            Kamu bisa login begitu udah diaktifkan.
           </p>
 
           <button type="button" onClick={onSwitchToLogin} className={BTN_PRIMARY}>
-            Back to sign in
+            Kembali ke halaman login
           </button>
         </div>
       </div>
@@ -181,17 +181,17 @@ export default function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
         </div>
 
         <h1 className="text-2xl font-extrabold tracking-tight text-[#18233D] mb-1 text-center">
-          Create your account
+          Buat akun kamu
         </h1>
         <p className="text-sm text-[#5B6B82] mb-8 text-center">
-          Owner or staff — tell us which, and we'll set things up right.
+          Owner atau staff — pilih salah satu, biar kita siapin yang sesuai.
         </p>
 
         {/* Role toggle */}
         <div className="flex bg-white border border-[#E4E2DC] rounded-md p-1 mb-6">
           {[
-            { key: 'owner', label: 'I own the business' },
-            { key: 'staff', label: "I'm joining a team" },
+            { key: 'owner', label: 'Saya pemilik business' },
+            { key: 'staff', label: 'Saya mau join tim' },
           ].map((opt) => (
             <button
               key={opt.key}
@@ -235,7 +235,7 @@ export default function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
 
         <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           <div>
-            <label className={LABEL}>Full name</label>
+            <label className={LABEL}>Nama lengkap</label>
             <input
               type="text"
               value={fullName}
@@ -271,43 +271,43 @@ export default function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
           {role === 'owner' ? (
             <>
               <div>
-                <label className={LABEL}>Business name</label>
+                <label className={LABEL}>Nama business</label>
                 <input
                   type="text"
                   value={businessName}
                   onChange={(e) => handleBusinessNameChange(e.target.value)}
                   className={INPUT}
-                  placeholder="Bu Rini's Cloud Kitchen"
+                  placeholder="Dapur Bu Rini"
                 />
               </div>
 
               <div>
-                <label className={LABEL}>Business code</label>
+                <label className={LABEL}>Kode business</label>
                 <input
                   type="text"
                   value={businessSlug}
                   onChange={(e) => handleSlugChange(e.target.value)}
                   className={`${INPUT} text-sm`}
-                  placeholder="bu-rinis-cloud-kitchen"
+                  placeholder="dapur-bu-rini"
                 />
                 <p className="text-xs text-[#8B96A6] mt-1.5">
-                  We'll add a random string to the end for security, so the final code won't be guessable.
-                  You'll find the full code under People after signing up.
+                  Kita bakal tambahin string acak di belakangnya biar aman, jadi kodenya gak gampang ditebak.
+                  Kode lengkapnya bisa kamu lihat di halaman Staff setelah daftar.
                 </p>
               </div>
             </>
           ) : (
             <div>
-              <label className={LABEL}>Business code</label>
+              <label className={LABEL}>Kode business</label>
               <input
                 type="text"
                 value={staffCode}
                 onChange={(e) => setStaffCode(e.target.value)}
                 className={`${INPUT} text-sm`}
-                placeholder="bu-rinis-cloud-kitchen"
+                placeholder="dapur-bu-rini"
               />
               <p className="text-xs text-[#8B96A6] mt-1.5">
-                Ask your owner for this code.
+                Minta kode ini ke pemilik business kamu.
               </p>
             </div>
           )}
@@ -315,18 +315,18 @@ export default function RegisterPage({ onRegisterSuccess, onSwitchToLogin }) {
           {error && <p className={ERROR_BANNER}>{error}</p>}
 
           <button type="submit" disabled={loading} className={BTN_PRIMARY}>
-            {loading ? 'Creating account…' : 'Create account'}
+            {loading ? 'Membuat akun…' : 'Buat akun'}
           </button>
         </form>
 
         <p className="mt-6 text-sm text-[#5B6B82] text-center">
-          Already have an account?{' '}
+          Udah punya akun?{' '}
           <button
             type="button"
             onClick={onSwitchToLogin}
             className="text-[#28579C] font-semibold hover:text-[#1E4278] transition-colors"
           >
-            Sign in
+            Login
           </button>
         </p>
       </div>

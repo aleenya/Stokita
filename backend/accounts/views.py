@@ -173,13 +173,13 @@ class RefreshView(APIView):
     def post(self, request):
         raw_refresh = request.COOKIES.get(settings.REFRESH_COOKIE_NAME)
         if not raw_refresh:
-            return Response({"error": "No refresh token."}, status=status.HTTP_401_UNAUTHORIZED)
+            return Response({"error": "Refresh token tidak ditemukan."}, status=status.HTTP_401_UNAUTHORIZED)
 
         serializer = TokenRefreshSerializer(data={"refresh": raw_refresh})
         try:
             serializer.is_valid(raise_exception=True)
         except Exception:
-            response = Response({"error": "Session expired, please sign in again."}, status=status.HTTP_401_UNAUTHORIZED)
+            response = Response({"error": "Sesi udah habis, silakan login lagi."}, status=status.HTTP_401_UNAUTHORIZED)
             clear_auth_cookies(response)
             return response
 
@@ -222,7 +222,7 @@ class StaffViewSet(viewsets.ViewSet):
         features = request.data.get("features", [])
         invalid = [f for f in features if f not in valid_codes]
         if invalid:
-            return Response({"error": f"Unknown feature(s): {invalid}"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": f"Fitur gak dikenal: {invalid}"}, status=status.HTTP_400_BAD_REQUEST)
 
         staff.feature_grants.all().delete()
         for f in features:

@@ -69,12 +69,12 @@ const IconPeople = () => (
 )
 
 export const NAV_ITEMS = [
-  { key: 'dashboard', label: 'Today', Icon: IconToday },
-  { key: 'ingredients', label: 'Stock', Icon: IconStock },
-  { key: 'menus', label: 'Menus', Icon: IconMenus },
-  { key: 'sales', label: 'Sales', Icon: IconSales },
-  { key: 'profit', label: 'Performance', Icon: IconPerformance },
-  { key: 'people', label: 'People', Icon: IconPeople },
+  { key: 'dashboard', label: 'Hari Ini', Icon: IconToday },
+  { key: 'ingredients', label: 'Stok', Icon: IconStock },
+  { key: 'menus', label: 'Menu', Icon: IconMenus },
+  { key: 'sales', label: 'Penjualan', Icon: IconSales },
+  { key: 'profit', label: 'Performa', Icon: IconPerformance },
+  { key: 'people', label: 'Staff', Icon: IconPeople },
 ]
 
 export const pageLabel = (key) => NAV_ITEMS.find((i) => i.key === key)?.label || 'Stokita'
@@ -159,7 +159,7 @@ export default function Sidebar({
           <button
             type="button"
             onClick={onMobileClose}
-            aria-label="Close menu"
+            aria-label="Tutup menu"
             className="md:hidden ml-auto w-8 h-8 flex items-center justify-center rounded-md text-[#8B96A6] hover:bg-[#F7F5F0] transition-colors"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -179,7 +179,7 @@ export default function Sidebar({
           </svg>
         </button>
 
-        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto" aria-label="Main navigation">
+        <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto" aria-label="Navigasi utama">
           {items.map(({ key, label, Icon }) => {
             const active = page === key
             return (
@@ -214,7 +214,7 @@ export default function Sidebar({
             <svg className="w-[15px] h-[15px] shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
-            <span>Ask Stokita&hellip;</span>
+            <span>Tanya Stokita&hellip;</span>
           </button>
         </div>
 
@@ -243,7 +243,7 @@ export default function Sidebar({
                 }}
                 className="w-full text-left px-3 py-2 text-sm font-medium text-[#B8433B] hover:bg-[#FBEBEA] transition-colors rounded-md"
               >
-                Log out
+                Keluar
               </button>
             </div>
           )}
@@ -273,7 +273,7 @@ export function MobileTopbar({ title, onOpenMenu = () => {}, open = false }) {
       <button
         type="button"
         onClick={onOpenMenu}
-        aria-label="Open menu"
+        aria-label="Buka menu"
         aria-expanded={open}
         className="w-9 h-9 -ml-1.5 flex items-center justify-center rounded-md text-[#5B6B82] hover:bg-[#F7F5F0] transition-colors"
       >
