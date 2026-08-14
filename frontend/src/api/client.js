@@ -1,22 +1,46 @@
 import axios from 'axios'
 
-// Auth now lives in httpOnly cookies (set by the backend), not
-// localStorage — withCredentials makes the browser send them, and the
-// xsrf* options make axios read Django's csrftoken cookie and echo it
-// back as a header on unsafe requests (double-submit CSRF check).
+// Auth lives in httpOnly cookies (set by the backend) — withCredentials
+// makes the browser send them.
+//
+// CSRF is trickier. axios's xsrfCookieName/withXSRFToken option reads the
+// csrftoken cookie via document.cookie and echoes it as a header — but
+// that only works when frontend and backend share an origin. In
+// production they're on different top-level domains (the SPA's domain vs
+// the API's Vercel domain), and document.cookie can never read a cookie
+// set by a different origin, no matter its SameSite/Secure flags — those
+// only govern whether the browser *sends* the cookie, not whether JS on
+// another origin can *read* it. So the xsrf* options below are a no-op
+// in production; the cookie still round-trips to the server fine, the
+// frontend just can never see its value to put in the header.
+// Kept anyway as a harmless fallback for same-origin setups (local dev,
+// or if frontend/backend ever move under one domain) — csrfToken below
+// is what actually carries production.
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1',
   withCredentials: true,
   xsrfCookieName: 'csrftoken',
   xsrfHeaderName: 'X-CSRFToken',
-  // axios only auto-attaches the xsrf header for same-origin requests
-  // unless told otherwise — frontend (5173) and backend (8000) are
-  // different origins even in local dev, so without this every POST/PUT
-  // /PATCH/DELETE silently went out with no CSRF header and got rejected
-  // by the backend's enforce_csrf() (looked like "not recognized as
-  // owner" since every mutating request failed the same way regardless
-  // of role).
   withXSRFToken: true,
+})
+
+// Cross-origin fallback: GET /auth/csrf/ now also returns the token value
+// in its body (not just as a cookie) specifically so the frontend can
+// hold it in memory and set the header itself — see setCsrfToken below,
+// called once from App.jsx on boot. Manually setting the header here
+// always wins over (and works everywhere) the cookie-reading mechanism
+// above.
+let csrfToken = null
+export function setCsrfToken(token) {
+  csrfToken = token
+}
+
+api.interceptors.request.use((config) => {
+  const method = (config.method || 'get').toUpperCase()
+  if (csrfToken && !['GET', 'HEAD', 'OPTIONS'].includes(method)) {
+    config.headers['X-CSRFToken'] = csrfToken
+  }
+  return config
 })
 
 // Access tokens expire after 30min (see backend SIMPLE_JWT settings) —
