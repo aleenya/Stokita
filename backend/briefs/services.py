@@ -84,7 +84,6 @@ def _build_pricing_context(business):
     ).select_related("ingredient")
     expiring_soon = [{
         "id": str(m.ingredient.id), "name": m.ingredient.name,
-        "name": m.ingredient.name,
         "expiry_date": m.expiry_date.isoformat(),
     } for m in expiring]
 
@@ -276,11 +275,22 @@ def mark_action_acted(action):
             menu.active_discount_ingredient_id = action.related_ingredient_id
             menu.active_discount_expiry_date = action.discount_ingredient_expiry_date
             menu.save(update_fields=["active_discount_pct", "active_discount_ingredient", "active_discount_expiry_date"])
+        # Impact tracking (_capture_snapshot) only looks at sales/margin when
+        # related_menu is set — without this, a discount action's baseline
+        # only ever captures ingredient stock level, never whether the menu
+        # actually sold more because of the discount, which is the entire
+        # point of the recommendation. Picks the first affected menu when an
+        # ingredient feeds several; a known simplification, not a full fix
+        # for the multi-menu case.
+        if not action.related_menu_id:
+            first_menu = affected_menus.first()
+            if first_menu:
+                action.related_menu = first_menu
 
     action.status = BriefAction.ACTED
     action.acted_at = timezone.now()
     action.baseline_snapshot = _capture_snapshot(action)
-    action.save(update_fields=["status", "acted_at", "baseline_snapshot"])
+    action.save(update_fields=["status", "acted_at", "baseline_snapshot", "related_menu"])
     return action
 
 def get_impact_cooldown_status(business):

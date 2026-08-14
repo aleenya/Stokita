@@ -171,8 +171,8 @@ export default function ChatWidget() {
           <div ref={listRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
             {messages.length === 0 && (
               <p className="text-sm text-[#8B96A6] text-center mt-6">
-                Halo! Tanya soal stok, menu, atau penjualan kamu — atau minta restock
-                langsung dari sini, tetap perlu dikonfirmasi dulu sebelum kesimpen.
+                Halo! Tanya soal stok, menu, atau penjualan kamu, atau minta restock
+                langsung dari sini. Tetap perlu dikonfirmasi dulu sebelum kesimpen.
               </p>
             )}
             {messages.map((m, i) => (

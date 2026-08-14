@@ -79,7 +79,7 @@ function fmtDayTick(iso) {
 }
 function rangeLabelText(range) {
   if (!range) return ''
-  return `${fmtDateShort(range.start)} – ${fmtDateShort(range.end)}`
+  return `${fmtDateShort(range.start)} - ${fmtDateShort(range.end)}`
 }
 function todayStr() {
   return new Date().toISOString().slice(0, 10)
@@ -224,7 +224,7 @@ function FeedbackActionCard({ action, impacts, isPast }) {
               <p className="text-sm text-[#8B96A6] italic">
                 {isPast
                   ? 'Tidak ada rangkuman dampak untuk aksi ini.'
-                  : 'Belum ada rangkuman dampak — generate sekarang pakai tombol di atas.'}
+                  : 'Belum ada rangkuman dampak, generate sekarang pakai tombol di atas.'}
               </p>
             </div>
           )}
@@ -327,7 +327,7 @@ function DecisionFeedbackTab() {
       if (err.response?.status === 429) {
         setCanGenerate(false)
         setNextGenerateAt(err.response.data?.next_available_at ?? null)
-        showToast('Masih cooldown — tunggu 3 hari sejak generate terakhir.')
+        showToast('Masih cooldown, tunggu 3 hari sejak generate terakhir.')
       } else if (err.response?.status === 400) {
         showToast(err.response.data?.detail || 'Belum ada aksi yang bisa dianalisis.')
       } else {
@@ -805,7 +805,7 @@ export default function ProfitPage() {
               ) : compareLoading || compareData === null ? (
                 <p className="text-sm text-[#5B6B82] px-1 py-10 text-center">Memuat...</p>
               ) : !compareData.a || !compareData.b ? (
-                <EmptyState title="Salah satu menu tidak ketemu." body="Menu ini mungkin baru aja dihapus — pilih ulang menunya di atas." />
+                <EmptyState title="Salah satu menu tidak ketemu." body="Menu ini mungkin baru aja dihapus, pilih ulang menunya di atas." />
               ) : (
                 <CompareTable data={compareData} />
               )}
