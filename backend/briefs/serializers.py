@@ -5,7 +5,7 @@ from .models import DailyBrief, BriefAction, ActionImpactCheck
 class BriefActionSerializer(serializers.ModelSerializer):
     class Meta:
         model = BriefAction
-        fields = ["id", "action_type", "title", "message", "discount_pct",
+        fields = ["id", "action_type", "title", "message", "reasoning", "discount_pct",
                   "related_menu", "related_ingredient", "rupiah_impact", "status", "acted_at"]
 
 
