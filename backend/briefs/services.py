@@ -211,6 +211,7 @@ def generate_daily_brief(business):
             action_type=a["action_type"],
             title=a["title"],
             message=a["message"],
+            reasoning=a.get("reasoning") or "",
             discount_pct=a.get("discount_pct"),
             related_menu_id=a.get("related_menu_id"),
             related_ingredient_id=a.get("related_ingredient_id"),

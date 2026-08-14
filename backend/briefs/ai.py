@@ -22,6 +22,7 @@ class RecommendationItem(BaseModel):
     action_type: Literal["discount", "review_menu"]
     title: str = Field(description="Judul SANGAT singkat (maks ~6 kata), langsung actionable.")
     message: str = Field(description="1 kalimat singkat alasannya, nama menu/bahan di awal.")
+    reasoning: str = Field(description="2-3 kalimat penjelasan lebih detail, WAJIB sebut angka konkret dari data (margin %, tanggal kedaluwarsa, dsb) yang mendasari rekomendasi ini. Ini beda dari 'message' — jangan cuma ulang kalimat yang sama.")
     discount_pct: Optional[int] = Field(description="Angka 5-50. null jika review_menu.")
     related_ingredient_id: Optional[str] = Field(description="String uuid dari bahan terkait, atau null")
     related_menu_id: Optional[str] = Field(description="String uuid dari menu terkait, atau null")
@@ -50,17 +51,25 @@ def _rule_based_recommendations(context):
                 "action_type": "review_menu",
                 "title": f"Review Harga Menu {menu['name']}",
                 "message": f"Margin {menu['name']} sedang bermasalah ({menu.get('margin_pct', 0)}%). Tinjau ulang harga jual atau resepnya.",
+                "reasoning": f"Margin {menu['name']} saat ini {menu.get('margin_pct', 0)}%, di bawah target margin yang sehat. Ini dihitung dari total pendapatan dikurangi total biaya bahan pada penjualan menu ini. Kalau dibiarkan, tiap unit terjual menghasilkan untung lebih kecil dari yang seharusnya — pertimbangkan naikkan harga jual atau tinjau ulang resep buat turunkan biaya bahan.",
                 "related_menu_id": menu["menu_id"],
                 "discount_pct": None,
                 "rupiah_impact": 0,
             })
 
     FALLBACK_DISCOUNT_PCT = 20
+    today = date.today()
     for ing in context.get("expiring_soon", []):
+        try:
+            days_left = (date.fromisoformat(ing["expiry_date"]) - today).days
+        except (KeyError, ValueError):
+            days_left = None
+        days_text = f"dalam {days_left} hari" if days_left is not None and days_left >= 0 else "segera"
         actions.append({
             "action_type": "discount",
             "title": f"Diskon {FALLBACK_DISCOUNT_PCT}% Bahan {ing['name']}",
             "message": f"{ing['name']} akan segera kedaluwarsa. Diskon disarankan supaya cepat terjual sebelum terbuang.",
+            "reasoning": f"{ing['name']} kedaluwarsa pada {ing.get('expiry_date', '-')} ({days_text}). Diskon {FALLBACK_DISCOUNT_PCT}% dipakai buat dorong menu yang pakai bahan ini terjual lebih cepat, supaya stok yang mau kedaluwarsa itu habis terpakai daripada terbuang percuma.",
             "related_ingredient_id": ing["id"],
             "discount_pct": FALLBACK_DISCOUNT_PCT,
             "rupiah_impact": 0,
@@ -90,6 +99,7 @@ Aturan:
 - related_menu_id harus dari data "profit", atau null.
 - "discount" WAJIB punya discount_pct terisi (jangan null, jangan 0).
 - Batasi rekomendasi maksimal 8 tindakan, prioritaskan dampak tertinggi.
+- "message" dan "reasoning" HARUS beda isi: "message" itu 1 kalimat ringkas buat judul, "reasoning" itu penjelasan 2-3 kalimat yang sebut angka konkret dari data di atas (margin %, tanggal kedaluwarsa, dll). Jangan mengulang kalimat yang sama di keduanya.
 """
 
 def _parse_gemini_response(text, context):
@@ -133,6 +143,7 @@ def _parse_gemini_response(text, context):
             "action_type": a["action_type"],
             "title": a["title"],
             "message": a["message"],
+            "reasoning": a.get("reasoning") or "",
             "discount_pct": discount_pct,
             "related_ingredient_id": ingredient_id,
             "related_menu_id": menu_id,

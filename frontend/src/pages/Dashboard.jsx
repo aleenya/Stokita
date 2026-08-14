@@ -133,7 +133,7 @@ function mapBriefAction(a) {
     checkable: true,
     actionLabel: 'Lihat detail',
     recommendation: a.message,
-    reasoning: a.message,
+    reasoning: a.reasoning || '',
     // dulu dihitung tapi gak pernah ditampilin di mana pun — sekarang
     // dipakai PriorityRow biar tiap baris kerasa ada "isinya", bukan cuma
     // judul+deskripsi doang.
@@ -323,44 +323,63 @@ function CardSection({ title, count, subtitle, action, children, empty, loading 
 // Row: Review Menu & Discount (checkable — bagian dari brief, 24h cooldown)
 // -------------------------------------------------------------------------
 function PriorityRow({ p, onToggle, onDismiss }) {
+  const [expanded, setExpanded] = useState(false)
+  const hasReasoning = Boolean(p.reasoning)
+
   return (
-    <div className="flex items-center gap-4 px-5 py-4 hover:bg-[#F7F5F0]/70 transition-colors">
-      <button
-        type="button"
-        role="checkbox"
-        aria-checked={p.completed}
-        aria-label={`Tandai ${p.title} sebagai selesai`}
-        onClick={() => onToggle(p.id)}
-        className={`w-5 h-5 rounded-full border-2 shrink-0 transition-colors flex items-center justify-center ${p.completed ? 'bg-[#2E7D53] border-[#2E7D53]' : 'border-[#CBD1DB] hover:border-[#28579C]'
-          }`}
-      >
-        {p.completed && (
-          <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M20 6 9 17l-5-5" />
-          </svg>
-        )}
-      </button>
-      <div className="flex-1 min-w-0">
-        <p className={`text-sm font-semibold truncate ${p.completed ? 'text-[#8B96A6] line-through' : 'text-[#18233D]'}`}>
-          {p.title}
-        </p>
-        <p className={`${ROW_SUBTEXT} leading-relaxed`}>{p.summary}</p>
-        {p.impact && !p.completed && (
-          <p className="text-xs font-semibold text-[#2E7D53] mt-1">Estimasi dampak: {p.impact}</p>
-        )}
+    <div className="px-5 py-4 hover:bg-[#F7F5F0]/70 transition-colors">
+      <div className="flex items-center gap-4">
+        <button
+          type="button"
+          role="checkbox"
+          aria-checked={p.completed}
+          aria-label={`Tandai ${p.title} sebagai selesai`}
+          onClick={() => onToggle(p.id)}
+          className={`w-5 h-5 rounded-full border-2 shrink-0 transition-colors flex items-center justify-center ${p.completed ? 'bg-[#2E7D53] border-[#2E7D53]' : 'border-[#CBD1DB] hover:border-[#28579C]'
+            }`}
+        >
+          {p.completed && (
+            <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+          )}
+        </button>
+        <div className="flex-1 min-w-0">
+          <p className={`text-sm font-semibold truncate ${p.completed ? 'text-[#8B96A6] line-through' : 'text-[#18233D]'}`}>
+            {p.title}
+          </p>
+          <p className={`${ROW_SUBTEXT} leading-relaxed`}>{p.summary}</p>
+          {p.impact && !p.completed && (
+            <p className="text-xs font-semibold text-[#2E7D53] mt-1">Estimasi dampak: {p.impact}</p>
+          )}
+          {hasReasoning && (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="text-xs font-semibold text-[#28579C] hover:text-[#1E4278] transition-colors mt-1"
+            >
+              {expanded ? 'Sembunyikan alasan' : 'Kenapa direkomendasikan?'}
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <StatusBadge label={p.badge.label} tone={p.badge.tone} />
+          {!p.completed && (
+            <button
+              type="button"
+              onClick={() => onDismiss(p.id)}
+              className="text-xs font-medium text-[#8B96A6] hover:text-[#5B6B82] transition-colors"
+            >
+              Abaikan
+            </button>
+          )}
+        </div>
       </div>
-      <div className="flex items-center gap-3 shrink-0">
-        <StatusBadge label={p.badge.label} tone={p.badge.tone} />
-        {!p.completed && (
-          <button
-            type="button"
-            onClick={() => onDismiss(p.id)}
-            className="text-xs font-medium text-[#8B96A6] hover:text-[#5B6B82] transition-colors"
-          >
-            Abaikan
-          </button>
-        )}
-      </div>
+      {hasReasoning && expanded && (
+        <div className="mt-3 ml-9 rounded-lg bg-[#F7F5F0] px-3.5 py-3 text-xs text-[#5B6B82] leading-relaxed">
+          {p.reasoning}
+        </div>
+      )}
     </div>
   )
 }
@@ -623,10 +642,15 @@ export default function Dashboard({ ownerName = 'Bos', onNavigate }) {
 
   const priorities = useMemo(() => {
     if (status !== 'ready') return []
-    return allActions.filter((a) => a.status === 'pending').map(mapBriefAction)
+    // review_menu ("Review Harga") dimatiin sementara — belum ada aksi
+    // konkret yang bisa dilakuin dari kartunya, cuma checkbox doang.
+    // Discount tetap tampil karena punya efek nyata (apply diskon ke menu).
+    return allActions
+      .filter((a) => a.status === 'pending' && a.action_type !== 'review_menu')
+      .map(mapBriefAction)
   }, [status, allActions])
 
-  const priceActions = priorities // brief cuma isi discount + review_menu sekarang
+  const priceActions = priorities // brief cuma isi discount sekarang
 
   const restockActions = useMemo(() => lowStock.map(mapRestockItem), [lowStock])
   const expiryActions = useMemo(() => expiringSoon.map(mapExpiryItem), [expiringSoon])

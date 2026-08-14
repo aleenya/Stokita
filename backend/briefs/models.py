@@ -49,6 +49,10 @@ class BriefAction(models.Model):
     message = models.TextField()
     # Reasoning/alasan, ditampilin sebagai baris kedua di kartu (kecil),
     # misal "Bahan Nasi Goreng akan segera kadaluwarsa dalam 2 hari."
+    reasoning = models.TextField(blank=True, default="")
+    # Penjelasan lebih detail (angka/data konkret) di balik rekomendasi ini,
+    # ditampilin cuma kalau user expand kartunya — beda dari message di atas
+    # yang cuma 1 kalimat ringkas buat tampilan default.
     discount_pct = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     # Cuma diisi kalau action_type == "discount". Ini angka terstruktur
     # yang dipakai logic apply-diskon-ke-sales, BUKAN cuma teks di title.
