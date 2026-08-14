@@ -45,16 +45,24 @@ class RegisterView(APIView):
 
 
 class CsrfCookieView(APIView):
-    """SPA calls this once on load. Django only sets the csrftoken cookie
-    as a side effect of get_token() being called somewhere in the request
-    — there's no template tag to trigger it on an API-only backend, so
-    this exists purely to make that happen explicitly."""
+    """SPA calls this once on load. Also returns the token value in the
+    body — the frontend/backend are on different top-level domains in
+    production (www.stokita.app vs the Vercel backend domain), and
+    document.cookie can only ever read a cookie set by the page's own
+    origin. axios's cookie-reading CSRF echo (xsrfCookieName) silently
+    finds nothing there, so every mutating request loses its
+    X-CSRFToken header — the cookie itself still round-trips fine
+    (SameSite=None), it's just unreadable to JS on the frontend's
+    origin. Handing the same value back in the body lets the frontend
+    hold it in memory and set the header itself, sidestepping the
+    cross-origin cookie-read entirely without weakening the check
+    (server still compares this exact value against the cookie)."""
     permission_classes = [AllowAny]
     authentication_classes = []
 
     def get(self, request):
-        get_token(request)
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        token = get_token(request)
+        return Response({"csrftoken": token})
 
 
 class LoginView(APIView):

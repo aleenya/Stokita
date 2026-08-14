@@ -368,7 +368,7 @@ function RecipeModal({ menu, ingredients, onClose, onSaved }) {
   }
 
   return (
-    <Modal title={`Resep — ${menu.name}`} onClose={onClose}>
+    <Modal title={`Resep ${menu.name}`} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         {lines.length === 0 && (
           <p className="text-sm text-[#5B6B82]">Belum ada ingredient di resep ini.</p>
@@ -386,7 +386,7 @@ function RecipeModal({ menu, ingredients, onClose, onSaved }) {
                     onChange={(e) => updateLine(idx, { ingredient_id: e.target.value })}
                     className={INPUT}
                   >
-                    <option value="">— pilih —</option>
+                    <option value="">Pilih</option>
                     {ingredients.map((i) => (
                       <option key={i.id} value={i.id}>
                         {i.name}
@@ -464,7 +464,7 @@ function DiscountModal({ menu, onClose, onSaved }) {
     e.preventDefault()
     setError('')
     if (pct === '' || Number(pct) < 0 || Number(pct) > 100) {
-      setError('Persen diskon harus antara 0–100.')
+      setError('Persen diskon harus antara 0-100.')
       return
     }
     if (Number(pct) === 0) {
@@ -497,7 +497,7 @@ function DiscountModal({ menu, onClose, onSaved }) {
   }
 
   return (
-    <Modal title={`Diskon manual — ${menu.name}`} onClose={onClose}>
+    <Modal title={`Diskon manual ${menu.name}`} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         <p className="text-sm text-[#5B6B82]">
           Harga jual normal: <span className="font-semibold text-[#18233D]">Rp {formatRupiah(menu.sell_price)}</span>

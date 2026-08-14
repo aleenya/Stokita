@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
-import api from './api/client'
+import api, { setCsrfToken } from './api/client'
 import IngredientsPage from './pages/IngredientsPage'
 import MenusPage from './pages/MenusPage'
 import SalesPage from './pages/SalesPage'
@@ -110,7 +110,9 @@ function App() {
   }, [])
 
   useEffect(() => {
-    api.get('/auth/csrf/').catch(() => {})
+    api.get('/auth/csrf/')
+      .then((res) => setCsrfToken(res.data?.csrftoken))
+      .catch(() => {})
     checkSession()
   }, [checkSession])
 

@@ -417,7 +417,7 @@ function RestockModal({ ingredient, onClose, onSaved }) {
   }
 
   return (
-    <Modal title={`Restock — ${ingredient.name}`} subtitle={`Stok saat ini: ${Number(ingredient.current_stock)} ${ingredient.unit}`} onClose={onClose}>
+    <Modal title={`Restock ${ingredient.name}`} subtitle={`Stok saat ini: ${Number(ingredient.current_stock)} ${ingredient.unit}`} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -507,7 +507,7 @@ function WasteModal({ ingredient, onClose, onSaved }) {
 
   return (
     <Modal
-      title={`Tandai rusak — ${ingredient.name}`}
+      title={`Tandai rusak ${ingredient.name}`}
       subtitle={`Stok saat ini: ${Number(ingredient.current_stock)} ${ingredient.unit}`}
       onClose={onClose}
     >
@@ -523,7 +523,7 @@ function WasteModal({ ingredient, onClose, onSaved }) {
             autoFocus
           />
           <p className="text-xs text-[#8B96A6] mt-1.5">
-            Bahan yang udah kedaluwarsa/rusak dan tidak bisa dipakai lagi — dicatat sebagai
+            Bahan yang udah kedaluwarsa/rusak dan tidak bisa dipakai lagi, dicatat sebagai
             adjustment, bukan restock.
           </p>
         </div>
@@ -663,7 +663,7 @@ function RestockFromReceiptModal({ onClose, onSaved }) {
           <p className="text-sm font-semibold text-[#18233D]">
             Drag &amp; drop foto struk/invoice kamu di sini
           </p>
-          <p className="text-xs text-[#8B96A6] mt-1">atau klik buat pilih file — JPG, PNG</p>
+          <p className="text-xs text-[#8B96A6] mt-1">atau klik buat pilih file (JPG, PNG)</p>
           <span className={`${AI_BADGE} mt-3`}>
             <IconSparkles className="w-3 h-3" /> Didukung Vision AI
           </span>
@@ -814,7 +814,7 @@ function EditIngredientModal({ ingredient, onClose, onSaved }) {
   }
 
   return (
-    <Modal title={`Edit — ${ingredient.name}`} onClose={onClose}>
+    <Modal title={`Edit ${ingredient.name}`} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         <div>
           <label className={LABEL}>Nama</label>
@@ -858,7 +858,7 @@ function EditIngredientModal({ ingredient, onClose, onSaved }) {
           />
         </div>
         <p className="text-xs text-[#8B96A6]">
-          Stok saat ini: {Number(ingredient.current_stock)} {ingredient.unit} — terkunci, pakai Restock buat mengubahnya.
+          Stok saat ini: {Number(ingredient.current_stock)} {ingredient.unit}. Terkunci, pakai Restock buat mengubahnya.
         </p>
 
         {error && <p className={ERROR_BANNER}>{error}</p>}
@@ -962,7 +962,7 @@ function PaginationFooter({ page, totalPages, onPrev, onNext, startIdx, endIdx, 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 border-t border-[#E4E2DC]">
       <p className="text-xs text-[#8B96A6]">
-        Menampilkan <span className="font-semibold text-[#5B6B82]">{startIdx}–{endIdx}</span> dari{' '}
+        Menampilkan <span className="font-semibold text-[#5B6B82]">{startIdx}-{endIdx}</span> dari{' '}
         <span className="font-semibold text-[#5B6B82]">{total}</span> {itemLabel}
       </p>
       {totalPages > 1 && (

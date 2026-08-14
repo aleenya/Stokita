@@ -610,7 +610,7 @@ export default function Dashboard({ ownerName = 'Bos', onNavigate }) {
       if (err.response?.status === 429) {
         setCanGenerateNow(false)
         setNextGenerateAt(err.response.data?.next_available_at ?? null)
-        showToast('Masih cooldown — brief terakhir belum genap 24 jam.')
+        showToast('Masih cooldown, brief terakhir belum genap 24 jam.')
       } else {
         showToast('Gagal generate brief.')
       }
@@ -697,7 +697,7 @@ export default function Dashboard({ ownerName = 'Bos', onNavigate }) {
           {status === 'loading' ? (
             'Memuat brief hari ini…'
           ) : openCount === 0 ? (
-            <>Semua udah beres — <span className="text-white font-semibold">gak ada prioritas yang perlu ditangani</span> sekarang.</>
+            <>Semua udah beres, <span className="text-white font-semibold">gak ada prioritas yang perlu ditangani</span> sekarang.</>
           ) : (
             <><span className="text-white font-semibold">{openCount} item</span> butuh perhatian kamu hari ini.</>
           )}
@@ -781,7 +781,7 @@ export default function Dashboard({ ownerName = 'Bos', onNavigate }) {
             <CardSection
               title="Stok Perlu Restock"
               count={restockActions.length}
-              subtitle="Kehabisan stok lebih mahal daripada rugi kecil — restock duluan."
+              subtitle="Kehabisan stok lebih mahal daripada rugi kecil, restock duluan."
               loading={status === 'loading'}
               action={
                 <button

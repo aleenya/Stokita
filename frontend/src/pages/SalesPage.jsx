@@ -391,7 +391,7 @@ function CsvImportSection({ menus, onImported }) {
     // a stray "2.5" can't silently sink the whole import.
     const validRows = rows.filter((r) => r.menu_id && Math.round(Number(r.quantity)) > 0)
     if (validRows.length === 0) {
-      setError('Tidak ada baris valid buat direcord — pilih menu & pastiin qty > 0 di minimal 1 baris.')
+      setError('Tidak ada baris valid buat direcord, pilih menu & pastiin qty > 0 di minimal 1 baris.')
       return
     }
     const aggregated = {}
@@ -438,7 +438,7 @@ function CsvImportSection({ menus, onImported }) {
           />
           <IconTable className="w-8 h-8 text-[#8B96A6] mx-auto mb-3" />
           <p className="text-sm font-semibold text-[#18233D]">Drag &amp; drop CSV penjualan kamu di sini</p>
-          <p className="text-xs text-[#8B96A6] mt-1">atau klik buat pilih file — kolom nama menu + qty, dicocokin otomatis ke katalog kamu</p>
+          <p className="text-xs text-[#8B96A6] mt-1">atau klik buat pilih file. Kolom nama menu + qty bakal dicocokin otomatis ke katalog kamu</p>
         </div>
       )}
 
@@ -465,14 +465,14 @@ function CsvImportSection({ menus, onImported }) {
             <div>
               <label className={LABEL}>Kolom nama menu</label>
               <select value={menuColumn} onChange={(e) => setMenuColumn(e.target.value)} className={INPUT}>
-                <option value="">— pilih kolom —</option>
+                <option value="">Pilih kolom</option>
                 {headers.map((h) => <option key={h} value={h}>{h}</option>)}
               </select>
             </div>
             <div>
               <label className={LABEL}>Kolom quantity</label>
               <select value={qtyColumn} onChange={(e) => setQtyColumn(e.target.value)} className={INPUT}>
-                <option value="">— pilih kolom —</option>
+                <option value="">Pilih kolom</option>
                 {headers.map((h) => <option key={h} value={h}>{h}</option>)}
               </select>
             </div>
@@ -554,7 +554,7 @@ function CsvImportSection({ menus, onImported }) {
                         onChange={(e) => updateRow(i, { menu_id: e.target.value })}
                         className={INPUT}
                       >
-                        <option value="">— pilih menu —</option>
+                        <option value="">Pilih menu</option>
                         {menus.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
                       </select>
                       {!row.menu_id && row.candidates.length > 0 && (
@@ -763,7 +763,7 @@ export default function SalesPage() {
                         return (
                           <li key={it.id} className="flex items-center gap-1.5">
                             <span>
-                              {menuName(it.menu)} × {it.quantity} — {formatRupiah(it.unit_price * it.quantity)}
+                              {menuName(it.menu)} × {it.quantity} · {formatRupiah(it.unit_price * it.quantity)}
                             </span>
                             {isDiscounted && (
                               <span
