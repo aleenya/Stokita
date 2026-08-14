@@ -45,7 +45,7 @@ def _rule_based_recommendations(context):
     actions = []
 
     for menu in context.get("profit", []):
-        if menu["state"] == "worrying":
+        if menu["state"] == "low":
             actions.append({
                 "action_type": "review_menu",
                 "title": f"Review Harga Menu {menu['name']}",
